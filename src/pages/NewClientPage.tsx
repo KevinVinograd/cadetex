@@ -1,261 +1,262 @@
-import React, { useState } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
-import { Label } from "../components/ui/label"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { ArrowLeft, Building2, User, MapPin, Globe } from "lucide-react"
+import { 
+  ArrowLeft, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Save,
+  X
+} from "lucide-react"
 
 export default function NewClientPage() {
   const navigate = useNavigate()
+  const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     address: "",
     city: "",
-    state: "",
-    zipCode: "",
-    country: "",
-    company: "",
-    website: "",
-    notes: "",
-    status: "active"
+    contact: "",
+    status: "active",
+    notes: ""
   })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Here you would typically save to your backend
-    console.log("Client created:", formData)
-    navigate("/dashboard/clients")
-  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSaving(true)
+    
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      console.log("New client created:", formData)
+      
+      alert("Cliente creado exitosamente!")
+      navigate("/dashboard/clients")
+    } catch (error) {
+      console.error('Error creating client:', error)
+      alert('Error creando el cliente. Intenta de nuevo.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    navigate("/dashboard/clients")
+  }
+
   return (
     <div className="space-y-8 p-8">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/clients")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Clients
-        </Button>
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">New Client</h1>
-          <p className="text-sm text-muted-foreground">Add a new client to your database</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/clients")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver a Clientes
+          </Button>
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">Nuevo Cliente</h1>
+            <p className="text-sm text-muted-foreground">Agrega un nuevo cliente al sistema</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleCancel}
+            disabled={isSaving}
+          >
+            <X className="h-4 w-4 mr-2" />
+            Cancelar
+          </Button>
+          <Button 
+            size="sm" 
+            onClick={handleSubmit}
+            disabled={isSaving}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? "Guardando..." : "Crear Cliente"}
+          </Button>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Basic Information */}
-        <Card className="border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Basic Information
-            </CardTitle>
-            <CardDescription>Enter the client's basic details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">Client Name *</Label>
-                <Input
-                  id="name"
-                  placeholder="John Doe or Company Name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="client@example.com"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Main Form */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Personal Information */}
+            <Card className="border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Información Personal
+                </CardTitle>
+                <CardDescription>Detalles del cliente</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Nombre Completo *</label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      className="mt-1"
+                      placeholder="John Doe"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Email *</label>
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange("email", e.target.value)}
+                      className="mt-1"
+                      placeholder="john@example.com"
+                      required
+                    />
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
-                <Input
-                  id="phone"
-                  placeholder="+1 (555) 123-4567"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Teléfono *</label>
+                    <Input
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange("phone", e.target.value)}
+                      className="mt-1"
+                      placeholder="+1 (555) 123-4567"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Estado</label>
+                    <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Activo</SelectItem>
+                        <SelectItem value="inactive">Inactivo</SelectItem>
+                        <SelectItem value="suspended">Suspendido</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-        {/* Company Information */}
-        <Card className="border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Company Information
-            </CardTitle>
-            <CardDescription>Enter company details (optional)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="company">Company Name</Label>
-                <Input
-                  id="company"
-                  placeholder="Acme Corporation"
-                  value={formData.company}
-                  onChange={(e) => handleInputChange("company", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="website">Website</Label>
-                <Input
-                  id="website"
-                  type="url"
-                  placeholder="https://example.com"
-                  value={formData.website}
-                  onChange={(e) => handleInputChange("website", e.target.value)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Dirección *</label>
+                  <Textarea
+                    value={formData.address}
+                    onChange={(e) => handleInputChange("address", e.target.value)}
+                    className="mt-1"
+                    placeholder="Ingresa la dirección completa..."
+                    rows={3}
+                    required
+                  />
+                </div>
 
-        {/* Address Information */}
-        <Card className="border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Address Information
-            </CardTitle>
-            <CardDescription>Enter the client's address details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="address">Street Address *</Label>
-              <Textarea
-                id="address"
-                placeholder="123 Main Street, Suite 100"
-                value={formData.address}
-                onChange={(e) => handleInputChange("address", e.target.value)}
-                required
-                rows={3}
-              />
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
+                    <Input
+                      value={formData.city}
+                      onChange={(e) => handleInputChange("city", e.target.value)}
+                      className="mt-1"
+                      placeholder="Ciudad"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Contacto</label>
+                    <Input
+                      value={formData.contact}
+                      onChange={(e) => handleInputChange("contact", e.target.value)}
+                      className="mt-1"
+                      placeholder="Persona de contacto"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="city">City *</Label>
-                <Input
-                  id="city"
-                  placeholder="New York"
-                  value={formData.city}
-                  onChange={(e) => handleInputChange("city", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State/Province *</Label>
-                <Input
-                  id="state"
-                  placeholder="NY"
-                  value={formData.state}
-                  onChange={(e) => handleInputChange("state", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="zipCode">ZIP/Postal Code *</Label>
-                <Input
-                  id="zipCode"
-                  placeholder="10001"
-                  value={formData.zipCode}
-                  onChange={(e) => handleInputChange("zipCode", e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+            {/* Additional Information */}
+            <Card className="border">
+              <CardHeader>
+                <CardTitle>Información Adicional</CardTitle>
+                <CardDescription>Cualquier información adicional</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Notas</label>
+                  <Textarea
+                    value={formData.notes}
+                    onChange={(e) => handleInputChange("notes", e.target.value)}
+                    className="mt-1"
+                    rows={4}
+                    placeholder="Agrega notas adicionales sobre este cliente..."
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="country">Country *</Label>
-              <Select value={formData.country} onValueChange={(value) => handleInputChange("country", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select country" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="US">United States</SelectItem>
-                  <SelectItem value="CA">Canada</SelectItem>
-                  <SelectItem value="MX">Mexico</SelectItem>
-                  <SelectItem value="GB">United Kingdom</SelectItem>
-                  <SelectItem value="DE">Germany</SelectItem>
-                  <SelectItem value="FR">France</SelectItem>
-                  <SelectItem value="ES">Spain</SelectItem>
-                  <SelectItem value="IT">Italy</SelectItem>
-                  <SelectItem value="AU">Australia</SelectItem>
-                  <SelectItem value="JP">Japan</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Additional Information */}
-        <Card className="border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              Additional Information
-            </CardTitle>
-            <CardDescription>Any additional notes or information</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Any additional notes about this client..."
-                value={formData.notes}
-                onChange={(e) => handleInputChange("notes", e.target.value)}
-                rows={4}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => navigate("/dashboard/clients")}>
-            Cancel
-          </Button>
-          <Button type="submit">
-            Add Client
-          </Button>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Client Summary */}
+            <Card className="border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Resumen del Cliente
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                    <span className="text-sm font-medium">
+                      {formData.name || "Nombre no especificado"}
+                    </span>
+                  </div>
+                  {formData.email && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Mail className="h-3 w-3" />
+                      {formData.email}
+                    </p>
+                  )}
+                  {formData.phone && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Phone className="h-3 w-3" />
+                      {formData.phone}
+                    </p>
+                  )}
+                  {formData.address && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <MapPin className="h-3 w-3" />
+                      {formData.address}
+                    </p>
+                  )}
+                  <div className="pt-2">
+                    <span className="text-xs text-muted-foreground">
+                      Estado: {formData.status === "active" ? "Activo" : formData.status === "inactive" ? "Inactivo" : "Suspendido"}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </form>
     </div>

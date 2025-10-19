@@ -1,12 +1,15 @@
-export type TaskType = "delivery" | "pickup" | "both"
+export type TaskType = "retiro" | "entrega"
 export type TaskStatus = "en_preparacion" | "pendiente_confirmar" | "confirmada_tomar" | "finalizada" | "cancelada"
 export type UserRole = "superadmin" | "orgadmin" | "courier"
+export type Priority = "baja" | "normal" | "alta" | "urgente"
 
 export interface Task {
   id: string
   type: TaskType
   clientId: string
   clientName: string
+  providerId?: string
+  providerName?: string
   organizationId?: string
   referenceBL: string
   mbl?: string
@@ -18,11 +21,15 @@ export interface Task {
   scheduledDate: string
   scheduledTime?: string
   pickupAddress: string
+  pickupCity: string
+  pickupContact: string
   deliveryAddress: string
+  deliveryCity: string
+  deliveryContact: string
   courierId?: string
   courierName?: string
   notes?: string
-  priority: "normal" | "urgente"
+  priority: Priority
   receiptPhoto?: string // Foto obligatoria del acuse de recibo
   additionalPhotos?: string[] // Fotos adicionales opcionales
   createdAt: string
@@ -33,8 +40,21 @@ export interface Client {
   id: string
   name: string
   address: string
+  city: string
   phone?: string
   email?: string
+  contact?: string
+  organizationId?: string
+}
+
+export interface Provider {
+  id: string
+  name: string
+  address: string
+  city: string
+  phone?: string
+  email?: string
+  contact?: string
   organizationId?: string
 }
 
@@ -43,6 +63,8 @@ export interface Courier {
   name: string
   phoneNumber: string
   email?: string
+  address?: string
+  vehicleType: string
   activeTasks: number
   organizationId?: string
 }

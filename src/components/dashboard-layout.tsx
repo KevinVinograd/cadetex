@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useState } from "react"
 import { useNavigate, useLocation, Outlet } from "react-router-dom"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Users, Truck, FileText, LogOut, Menu, X, Package } from "lucide-react"
+import { LayoutDashboard, Users, Truck, FileText, LogOut, Menu, X, Package, Building2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
 import { ThemeToggle } from "./theme-toggle"
@@ -11,7 +11,7 @@ interface DashboardLayoutProps {
   children: ReactNode
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const pathname = location.pathname
@@ -49,6 +49,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         { href: "/dashboard", label: "Tasks", icon: LayoutDashboard },
         { href: "/dashboard/clients", label: "Clients", icon: Users },
         { href: "/dashboard/couriers", label: "Couriers", icon: Truck },
+        { href: "/dashboard/providers", label: "Providers", icon: Building2 },
         { href: "/dashboard/reports", label: "Reports", icon: FileText },
       ]
     }

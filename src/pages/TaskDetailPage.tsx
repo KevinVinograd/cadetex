@@ -1,34 +1,87 @@
-import React, { useState } from "react"
-import { useParams, useNavigate, Link } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { mockTasks, mockClients, mockCouriers } from "../lib/mock-data"
+import { Input } from "../components/ui/input"
+import { Textarea } from "../components/ui/textarea"
+import { mockTasks, mockClients, mockCouriers, mockProviders } from "../lib/mock-data"
 import { 
   ArrowLeft, 
   Package, 
   MapPin, 
-  Calendar, 
-  User, 
   Phone, 
   Mail, 
-  Clock, 
   CheckCircle2, 
   AlertCircle,
   Edit,
   Trash2,
   Truck,
-  Building2
+  Building2,
+  Copy
 } from "lucide-react"
 
 export default function TaskDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [status, setStatus] = useState("")
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [formData, setFormData] = useState({
+    referenceBL: "",
+    clientId: "",
+    providerId: "",
+    type: "entrega",
+    status: "en_preparacion",
+    scheduledDate: "",
+    scheduledTime: "",
+    pickupAddress: "",
+    pickupCity: "",
+    pickupContact: "",
+    deliveryAddress: "",
+    deliveryCity: "",
+    deliveryContact: "",
+    courierId: "",
+    notes: "",
+    priority: "normal",
+    mbl: "",
+    hbl: "",
+    freightCertificate: "",
+    foCertificate: "",
+    bunkerCertificate: ""
+  })
   
   // Find the task by ID
   const task = mockTasks.find(t => t.id === id)
+
+  // Load task data into form
+  useEffect(() => {
+    if (task) {
+      setFormData({
+        referenceBL: task.referenceBL,
+        clientId: task.clientId || "",
+        providerId: task.providerId || "",
+        type: task.type,
+        status: task.status,
+        scheduledDate: new Date(task.scheduledDate).toISOString().split('T')[0],
+        scheduledTime: task.scheduledTime || "",
+        pickupAddress: task.pickupAddress,
+        pickupCity: task.pickupCity,
+        pickupContact: task.pickupContact || "",
+        deliveryAddress: task.deliveryAddress,
+        deliveryCity: task.deliveryCity,
+        deliveryContact: task.deliveryContact || "",
+        courierId: task.courierId || "unassigned",
+        notes: task.notes || "",
+        priority: task.priority || "normal",
+        mbl: task.mbl || "",
+        hbl: task.hbl || "",
+        freightCertificate: task.freightCertificate || "",
+        foCertificate: task.foCertificate || "",
+        bunkerCertificate: task.bunkerCertificate || ""
+      })
+    }
+  }, [task])
   
   if (!task) {
     return (
@@ -48,6 +101,105 @@ export default function TaskDetailPage() {
   const client = mockClients.find(c => c.id === task.clientId)
   const courier = mockCouriers.find(c => c.id === task.courierId)
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleClientChange = (clientId: string) => {
+    const client = mockClients.find(c => c.id === clientId)
+    if (client) {
+      setFormData(prev => ({
+        ...prev,
+        clientId,
+        deliveryAddress: client.address,
+        deliveryCity: client.city,
+        deliveryContact: client.contact || ""
+      }))
+    }
+  }
+
+  const handleProviderChange = (providerId: string) => {
+    const provider = mockProviders.find(p => p.id === providerId)
+    if (provider) {
+      setFormData(prev => ({
+        ...prev,
+        providerId,
+        pickupAddress: provider.address,
+        pickupCity: provider.city,
+        pickupContact: provider.contact || ""
+      }))
+    }
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log("Task updated:", formData)
+      setIsEditing(false)
+      alert("Task updated successfully!")
+    } catch (error) {
+      console.error('Error updating task:', error)
+      alert('Error updating task. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    // Reset form data to original task data
+    if (task) {
+      setFormData({
+        referenceBL: task.referenceBL,
+        clientId: task.clientId || "",
+        providerId: task.providerId || "",
+        type: task.type,
+        status: task.status,
+        scheduledDate: new Date(task.scheduledDate).toISOString().split('T')[0],
+        scheduledTime: task.scheduledTime || "",
+        pickupAddress: task.pickupAddress,
+        pickupCity: task.pickupCity,
+        pickupContact: task.pickupContact || "",
+        deliveryAddress: task.deliveryAddress,
+        deliveryCity: task.deliveryCity,
+        deliveryContact: task.deliveryContact || "",
+        courierId: task.courierId || "unassigned",
+        notes: task.notes || "",
+        priority: task.priority || "normal",
+        mbl: task.mbl || "",
+        hbl: task.hbl || "",
+        freightCertificate: task.freightCertificate || "",
+        foCertificate: task.foCertificate || "",
+        bunkerCertificate: task.bunkerCertificate || ""
+      })
+    }
+    setIsEditing(false)
+  }
+
+  const handleClone = () => {
+    if (!task) return
+    
+    // Create a cloned task with modified data
+    const clonedTask = {
+      ...task,
+      id: `cloned-${Date.now()}`, // Generate new ID
+      referenceBL: `${task.referenceBL}-COPY`, // Add COPY suffix
+      status: "en_preparacion" as const, // Reset to preparation status
+      courierId: "", // Unassign courier
+      scheduledDate: new Date().toISOString(), // Set to current date
+      scheduledTime: "", // Clear scheduled time
+      notes: `Clonada de tarea ${task.id} - ${new Date().toLocaleString()}`, // Add clone note
+      updatedAt: new Date().toISOString()
+    }
+    
+    // Store cloned task data in localStorage to pass to clone page
+    localStorage.setItem('clonedTask', JSON.stringify(clonedTask))
+    
+    // Navigate to clone page
+    navigate(`/dashboard/tasks/clone`)
+  }
+
   const getStatusBadge = (status: string) => {
     const variants = {
       pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -60,18 +212,16 @@ export default function TaskDetailPage() {
 
   const getTypeBadge = (type: string) => {
     const variants = {
-      delivery: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-      pickup: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-      both: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
+      retiro: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+      entrega: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
     }
-    return <Badge className={variants[type as keyof typeof variants]}>{type}</Badge>
+    const labels = {
+      retiro: "Retiro",
+      entrega: "Entrega",
+    }
+    return <Badge className={variants[type as keyof typeof variants]}>{labels[type as keyof typeof labels] || type}</Badge>
   }
 
-  const handleStatusChange = (newStatus: string) => {
-    setStatus(newStatus)
-    // Here you would typically update the task status in your backend
-    console.log("Status changed to:", newStatus)
-  }
 
   return (
     <div className="space-y-8 p-8">
@@ -102,19 +252,63 @@ export default function TaskDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Reference BL</label>
-                  <p className="text-lg font-semibold">{task.referenceBL}</p>
+                  {isEditing ? (
+                    <Input
+                      value={formData.referenceBL}
+                      onChange={(e) => handleInputChange("referenceBL", e.target.value)}
+                      className="mt-1"
+                    />
+                  ) : (
+                    <p className="text-lg font-semibold">{task.referenceBL}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Task Type</label>
-                  <div className="mt-1">{getTypeBadge(task.type)}</div>
+                  {isEditing ? (
+                    <Select value={formData.type} onValueChange={(value) => handleInputChange("type", value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="retiro">Retiro</SelectItem>
+                        <SelectItem value="entrega">Entrega</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="mt-1">{getTypeBadge(task.type)}</div>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Status</label>
-                  <div className="mt-1">{getStatusBadge(task.status)}</div>
+                  {isEditing ? (
+                    <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en_preparacion">En Preparación</SelectItem>
+                        <SelectItem value="pendiente_confirmar">Pendiente Confirmar</SelectItem>
+                        <SelectItem value="confirmada_tomar">Confirmada Tomar</SelectItem>
+                        <SelectItem value="finalizada">Finalizada</SelectItem>
+                        <SelectItem value="cancelada">Cancelada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="mt-1">{getStatusBadge(task.status)}</div>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Scheduled Date</label>
-                  <p className="text-sm">{new Date(task.scheduledDate).toLocaleDateString()}</p>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={formData.scheduledDate}
+                      onChange={(e) => handleInputChange("scheduledDate", e.target.value)}
+                      className="mt-1"
+                    />
+                  ) : (
+                    <p className="text-sm">{new Date(task.scheduledDate).toLocaleDateString()}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -132,11 +326,29 @@ export default function TaskDetailPage() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Pickup Address</label>
-                <p className="text-sm mt-1 p-3 bg-muted rounded-md">{task.pickupAddress}</p>
+                {isEditing ? (
+                  <Textarea
+                    value={formData.pickupAddress}
+                    onChange={(e) => handleInputChange("pickupAddress", e.target.value)}
+                    className="mt-1"
+                    rows={3}
+                  />
+                ) : (
+                  <p className="text-sm mt-1 p-3 bg-muted rounded-md">{task.pickupAddress}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Delivery Address</label>
-                <p className="text-sm mt-1 p-3 bg-muted rounded-md">{task.deliveryAddress}</p>
+                {isEditing ? (
+                  <Textarea
+                    value={formData.deliveryAddress}
+                    onChange={(e) => handleInputChange("deliveryAddress", e.target.value)}
+                    className="mt-1"
+                    rows={3}
+                  />
+                ) : (
+                  <p className="text-sm mt-1 p-3 bg-muted rounded-md">{task.deliveryAddress}</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -183,40 +395,108 @@ export default function TaskDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Operational Data */}
+          <Card className="border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Operational Data
+              </CardTitle>
+              <CardDescription>BL, certificates and operational information</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">MBL</label>
+                  {isEditing ? (
+                    <Input
+                      value={formData.mbl}
+                      onChange={(e) => handleInputChange("mbl", e.target.value)}
+                      className="mt-1"
+                      placeholder="Enter MBL"
+                    />
+                  ) : (
+                    <p className="text-sm mt-1 p-2 bg-muted rounded-md">{task.mbl || "Not specified"}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">HBL</label>
+                  {isEditing ? (
+                    <Input
+                      value={formData.hbl}
+                      onChange={(e) => handleInputChange("hbl", e.target.value)}
+                      className="mt-1"
+                      placeholder="Enter HBL"
+                    />
+                  ) : (
+                    <p className="text-sm mt-1 p-2 bg-muted rounded-md">{task.hbl || "Not specified"}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Freight Certificate</label>
+                  {isEditing ? (
+                    <Input
+                      value={formData.freightCertificate}
+                      onChange={(e) => handleInputChange("freightCertificate", e.target.value)}
+                      className="mt-1"
+                      placeholder="Enter freight certificate"
+                    />
+                  ) : (
+                    <p className="text-sm mt-1 p-2 bg-muted rounded-md">{task.freightCertificate || "Not specified"}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">FO Certificate</label>
+                  {isEditing ? (
+                    <Input
+                      value={formData.foCertificate}
+                      onChange={(e) => handleInputChange("foCertificate", e.target.value)}
+                      className="mt-1"
+                      placeholder="Enter FO certificate"
+                    />
+                  ) : (
+                    <p className="text-sm mt-1 p-2 bg-muted rounded-md">{task.foCertificate || "Not specified"}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Bunker Certificate</label>
+                  {isEditing ? (
+                    <Input
+                      value={formData.bunkerCertificate}
+                      onChange={(e) => handleInputChange("bunkerCertificate", e.target.value)}
+                      className="mt-1"
+                      placeholder="Enter bunker certificate"
+                    />
+                  ) : (
+                    <p className="text-sm mt-1 p-2 bg-muted rounded-md">{task.bunkerCertificate || "Not specified"}</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Notes</label>
+                {isEditing ? (
+                  <Textarea
+                    value={formData.notes}
+                    onChange={(e) => handleInputChange("notes", e.target.value)}
+                    className="mt-1"
+                    rows={3}
+                    placeholder="Enter additional notes"
+                  />
+                ) : (
+                  <p className="text-sm mt-1 p-3 bg-muted rounded-md">{task.notes || "No notes"}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Status Management */}
-          <Card className="border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Status Management
-              </CardTitle>
-              <CardDescription>Update task status</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Current Status</label>
-                <div className="mt-1">{getStatusBadge(task.status)}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Change Status</label>
-                <Select value={status} onValueChange={handleStatusChange}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select new status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="canceled">Canceled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Courier Assignment */}
           <Card className="border">
@@ -228,7 +508,26 @@ export default function TaskDetailPage() {
               <CardDescription>Assigned courier details</CardDescription>
             </CardHeader>
             <CardContent>
-              {courier ? (
+              {isEditing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Assign Courier</label>
+                    <Select value={formData.courierId} onValueChange={(value) => handleInputChange("courierId", value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select a courier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">No courier assigned</SelectItem>
+                        {mockCouriers.map((courier) => (
+                          <SelectItem key={courier.id} value={courier.id}>
+                            {courier.name} - {courier.phoneNumber}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ) : courier ? (
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Courier Name</label>
@@ -254,9 +553,6 @@ export default function TaskDetailPage() {
               ) : (
                 <div className="text-center py-4">
                   <p className="text-muted-foreground text-sm">No courier assigned</p>
-                  <Button size="sm" className="mt-2">
-                    Assign Courier
-                  </Button>
                 </div>
               )}
             </CardContent>
@@ -269,20 +565,52 @@ export default function TaskDetailPage() {
               <CardDescription>Manage this task</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button className="w-full" variant="outline" asChild>
-                <Link to={`/dashboard/tasks/${task.id}/edit`}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Task
-                </Link>
-              </Button>
-              <Button className="w-full" variant="outline" onClick={() => navigate("/dashboard")}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Mark Complete
-              </Button>
-              <Button className="w-full" variant="destructive" size="sm">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Task
-              </Button>
+              {!isEditing ? (
+                <>
+                  <Button 
+                    className="w-full" 
+                    variant="outline" 
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Task
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="outline" 
+                    onClick={handleClone}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Clone Task
+                  </Button>
+                  <Button className="w-full" variant="outline" onClick={() => navigate("/dashboard")}>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Mark Complete
+                  </Button>
+                  <Button className="w-full" variant="destructive" size="sm">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Task
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleSave}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="outline" 
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -14,7 +14,7 @@ import {
   X
 } from "lucide-react"
 
-export default function NewTaskPage() {
+export default function CloneTaskPage() {
   const navigate = useNavigate()
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
@@ -37,6 +37,62 @@ export default function NewTaskPage() {
     foCertificate: "",
     bunkerCertificate: ""
   })
+
+  // Load cloned task data from localStorage
+  useEffect(() => {
+    const clonedTaskData = localStorage.getItem('clonedTask')
+    if (clonedTaskData) {
+      const clonedTask = JSON.parse(clonedTaskData)
+      
+      // Determine contact type and load appropriate data
+      let contactType = "client"
+      let contactId = ""
+      let address = ""
+      let city = ""
+      let contact = ""
+      
+      if (clonedTask.clientId) {
+        contactType = "client"
+        contactId = clonedTask.clientId
+        const client = mockClients.find(c => c.id === clonedTask.clientId)
+        if (client) {
+          address = client.address
+          city = client.city
+          contact = client.contact || ""
+        }
+      } else if (clonedTask.providerId) {
+        contactType = "provider"
+        contactId = clonedTask.providerId
+        const provider = mockProviders.find(p => p.id === clonedTask.providerId)
+        if (provider) {
+          address = provider.address
+          city = provider.city
+          contact = provider.contact || ""
+        }
+      }
+      
+      setFormData({
+        referenceBL: clonedTask.referenceBL,
+        contactType,
+        contactId,
+        type: clonedTask.type,
+        status: clonedTask.status,
+        scheduledDate: new Date(clonedTask.scheduledDate).toISOString().split('T')[0],
+        scheduledTime: clonedTask.scheduledTime || "",
+        address,
+        city,
+        contact,
+        courierId: clonedTask.courierId || "unassigned",
+        notes: clonedTask.notes || "",
+        priority: clonedTask.priority || "normal",
+        mbl: clonedTask.mbl || "",
+        hbl: clonedTask.hbl || "",
+        freightCertificate: clonedTask.freightCertificate || "",
+        foCertificate: clonedTask.foCertificate || "",
+        bunkerCertificate: clonedTask.bunkerCertificate || ""
+      })
+    }
+  }, [])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -104,19 +160,23 @@ export default function NewTaskPage() {
         updatedAt: new Date().toISOString()
       }
       
-      console.log("New task created:", newTask)
+      console.log("New cloned task created:", newTask)
       
-      alert("Tarea creada exitosamente!")
+      // Clear localStorage
+      localStorage.removeItem('clonedTask')
+      
+      alert("Tarea clonada exitosamente!")
       navigate("/dashboard")
     } catch (error) {
-      console.error('Error creating task:', error)
-      alert('Error creando la tarea. Intenta de nuevo.')
+      console.error('Error creating cloned task:', error)
+      alert('Error creando la tarea clonada. Intenta de nuevo.')
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleCancel = () => {
+    localStorage.removeItem('clonedTask')
     navigate("/dashboard")
   }
 
@@ -130,8 +190,8 @@ export default function NewTaskPage() {
             Volver al Dashboard
           </Button>
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">Nueva Tarea</h1>
-            <p className="text-sm text-muted-foreground">Crea una nueva tarea de entrega o retiro</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">Clonar Tarea</h1>
+            <p className="text-sm text-muted-foreground">Crea una nueva tarea basada en una existente</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -166,7 +226,7 @@ export default function NewTaskPage() {
                   <Package className="h-5 w-5" />
                   Información Básica
                 </CardTitle>
-                <CardDescription>Detalles de la nueva tarea</CardDescription>
+                <CardDescription>Detalles de la tarea clonada</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -469,12 +529,12 @@ export default function NewTaskPage() {
                       : "Se entregará la documentación en la dirección especificada"
                     }
                   </p>
-                  {formData.contactType === "client" && formData.contactId && (
+                  {formData.contactType === "client" && (
                     <p className="text-sm text-muted-foreground">
                       Cliente: {mockClients.find(c => c.id === formData.contactId)?.name || "No seleccionado"}
                     </p>
                   )}
-                  {formData.contactType === "provider" && formData.contactId && (
+                  {formData.contactType === "provider" && (
                     <p className="text-sm text-muted-foreground">
                       Proveedor: {mockProviders.find(p => p.id === formData.contactId)?.name || "No seleccionado"}
                     </p>

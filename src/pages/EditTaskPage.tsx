@@ -6,7 +6,7 @@ import { Label } from "../components/ui/label"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { mockTasks, mockClients, mockCouriers } from "../lib/mock-data"
+import { mockTasks, mockClients, mockCouriers, mockProviders } from "../lib/mock-data"
 import { ArrowLeft, Package, MapPin, Calendar, User, AlertCircle, Save } from "lucide-react"
 
 export default function EditTaskPage() {
@@ -18,13 +18,15 @@ export default function EditTaskPage() {
   
   const [formData, setFormData] = useState({
     referenceBL: "",
-    clientId: "",
-    type: "delivery",
+    contactType: "client",
+    contactId: "",
+    type: "entrega",
     status: "en_preparacion",
     scheduledDate: "",
     scheduledTime: "",
-    pickupAddress: "",
-    deliveryAddress: "",
+    address: "",
+    city: "",
+    contact: "",
     courierId: "",
     notes: "",
     priority: "normal",
@@ -37,16 +39,22 @@ export default function EditTaskPage() {
 
   useEffect(() => {
     if (task) {
+      // Determine if it's a client or provider based on which ID is present
+      const contactType = task.clientId ? "client" : "provider"
+      const contactId = task.clientId || task.providerId || ""
+      
       setFormData({
         referenceBL: task.referenceBL,
-        clientId: task.clientId || "",
+        contactType,
+        contactId,
         type: task.type,
         status: task.status,
         scheduledDate: new Date(task.scheduledDate).toISOString().split('T')[0],
         scheduledTime: task.scheduledTime || "",
-        pickupAddress: task.pickupAddress,
-        deliveryAddress: task.deliveryAddress,
-        courierId: task.courierId || "",
+        address: task.pickupAddress || task.deliveryAddress || "",
+        city: task.pickupCity || task.deliveryCity || "",
+        contact: task.pickupContact || task.deliveryContact || "",
+        courierId: task.courierId || "unassigned",
         notes: task.notes || "",
         priority: task.priority || "normal",
         mbl: task.mbl || "",
@@ -75,13 +83,56 @@ export default function EditTaskPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // Convert to the format expected by the backend
+    const dataToSave = {
+      ...formData,
+      clientId: formData.contactType === "client" ? formData.contactId : "",
+      providerId: formData.contactType === "provider" ? formData.contactId : "",
+      clientName: formData.contactType === "client" ? 
+        mockClients.find(c => c.id === formData.contactId)?.name || "" : "",
+      providerName: formData.contactType === "provider" ? 
+        mockProviders.find(p => p.id === formData.contactId)?.name || "" : "",
+      pickupAddress: formData.address,
+      pickupCity: formData.city,
+      pickupContact: formData.contact,
+      deliveryAddress: formData.address,
+      deliveryCity: formData.city,
+      deliveryContact: formData.contact,
+      courierId: formData.courierId === "unassigned" ? "" : formData.courierId
+    }
     // Here you would typically update the task in your backend
-    console.log("Task updated:", formData)
+    console.log("Task updated:", dataToSave)
     navigate(`/dashboard/tasks/${task.id}`)
   }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleClientChange = (clientId: string) => {
+    const client = mockClients.find(c => c.id === clientId)
+    if (client) {
+      setFormData(prev => ({
+        ...prev,
+        contactId: clientId,
+        address: client.address,
+        city: client.city,
+        contact: client.contact || ""
+      }))
+    }
+  }
+
+  const handleProviderChange = (providerId: string) => {
+    const provider = mockProviders.find(p => p.id === providerId)
+    if (provider) {
+      setFormData(prev => ({
+        ...prev,
+        contactId: providerId,
+        address: provider.address,
+        city: provider.city,
+        contact: provider.contact || ""
+      }))
+    }
   }
 
   return (
@@ -120,17 +171,42 @@ export default function EditTaskPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="clientId">Client *</Label>
-                <Select value={formData.clientId} onValueChange={(value) => handleInputChange("clientId", value)}>
+                <Label htmlFor="contactType">Contacto *</Label>
+                <Select value={formData.contactType || "client"} onValueChange={(value) => handleInputChange("contactType", value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a client" />
+                    <SelectValue placeholder="Selecciona tipo de contacto" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockClients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="client">Cliente</SelectItem>
+                    <SelectItem value="provider">Proveedor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactId">
+                  {formData.contactType === "provider" ? "Proveedor *" : "Cliente *"}
+                </Label>
+                <Select 
+                  value={formData.contactId || ""} 
+                  onValueChange={formData.contactType === "provider" ? handleProviderChange : handleClientChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={`Selecciona ${formData.contactType === "provider" ? "un proveedor" : "un cliente"}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formData.contactType === "provider" ? (
+                      mockProviders.map((provider) => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          {provider.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      mockClients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -144,9 +220,8 @@ export default function EditTaskPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="delivery">Delivery</SelectItem>
-                    <SelectItem value="pickup">Pickup</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
+                    <SelectItem value="retiro">Retiro</SelectItem>
+                    <SelectItem value="entrega">Entrega</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -279,37 +354,76 @@ export default function EditTaskPage() {
           </CardContent>
         </Card>
 
-        {/* Addresses */}
+        {/* Task Description */}
+        <Card className="border">
+          <CardContent className="pt-6">
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h4 className="font-medium text-sm mb-2">
+                {formData.type === "retiro" ? "📦 Retiro de Documentos" : 
+                 formData.type === "entrega" ? "🚚 Entrega de Documentos" : 
+                 "Selecciona un tipo de tarea"}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {formData.type === "retiro" ? 
+                  "Esta tarea consiste en recoger documentos desde la dirección de recogida y llevarlos a su destino final." :
+                 formData.type === "entrega" ? 
+                  "Esta tarea consiste en entregar documentos desde el origen hasta la dirección de entrega especificada." :
+                  "Selecciona el tipo de tarea para ver la descripción correspondiente."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Address */}
         <Card className="border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Addresses
+              Dirección
             </CardTitle>
-            <CardDescription>Update pickup and delivery locations</CardDescription>
+            <CardDescription>
+              {formData.type === "retiro" ? 
+                "Dirección donde se recogerán los documentos" : 
+                "Dirección donde se entregarán los documentos"}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="pickupAddress">Pickup Address *</Label>
-              <Textarea
-                id="pickupAddress"
-                placeholder="Enter pickup address..."
-                value={formData.pickupAddress}
-                onChange={(e) => handleInputChange("pickupAddress", e.target.value)}
-                required
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="deliveryAddress">Delivery Address *</Label>
-              <Textarea
-                id="deliveryAddress"
-                placeholder="Enter delivery address..."
-                value={formData.deliveryAddress}
-                onChange={(e) => handleInputChange("deliveryAddress", e.target.value)}
-                required
-                rows={3}
-              />
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground">
+                {formData.type === "retiro" ? "Dirección de Recogida" : "Dirección de Entrega"}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="address">Dirección *</Label>
+                  <Textarea
+                    id="address"
+                    placeholder={`Dirección completa de ${formData.type === "retiro" ? "recogida" : "entrega"}...`}
+                    value={formData.address}
+                    onChange={(e) => handleInputChange("address", e.target.value)}
+                    required
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">Ciudad *</Label>
+                  <Input
+                    id="city"
+                    placeholder={`Ciudad de ${formData.type === "retiro" ? "recogida" : "entrega"}`}
+                    value={formData.city}
+                    onChange={(e) => handleInputChange("city", e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact">Contacto</Label>
+                <Input
+                  id="contact"
+                  placeholder="Nombre y teléfono del contacto"
+                  value={formData.contact}
+                  onChange={(e) => handleInputChange("contact", e.target.value)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -331,7 +445,7 @@ export default function EditTaskPage() {
                   <SelectValue placeholder="Select a courier (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No courier assigned</SelectItem>
+                  <SelectItem value="unassigned">No courier assigned</SelectItem>
                   {mockCouriers.map((courier) => (
                     <SelectItem key={courier.id} value={courier.id}>
                       {courier.name} - {courier.phoneNumber}

@@ -83,11 +83,14 @@ export default function DashboardPage() {
 
   const getTypeBadge = (type: string) => {
     const variants = {
-      delivery: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-      pickup: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-      both: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
+      retiro: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+      entrega: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
     }
-    return <Badge className={variants[type as keyof typeof variants]}>{type}</Badge>
+    const labels = {
+      retiro: "Retiro",
+      entrega: "Entrega",
+    }
+    return <Badge className={variants[type as keyof typeof variants]}>{labels[type as keyof typeof labels] || type}</Badge>
   }
 
   const handleExportCompleted = () => {
@@ -106,12 +109,6 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">Manage and track all delivery tasks</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Link to="/dashboard/tasks/new">
-            <Button size="default" className="gap-2">
-              <Plus className="h-4 w-4" />
-              New Task
-            </Button>
-          </Link>
           <Button variant="outline" onClick={handleExportCompleted} className="gap-2">
             <Download className="h-4 w-4" />
             Export Completed
@@ -188,8 +185,18 @@ export default function DashboardPage() {
 
       <Card className="border">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-lg font-medium">Tasks</CardTitle>
-          <CardDescription className="text-sm">View and manage all delivery and pickup tasks</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-medium">Tasks</CardTitle>
+              <CardDescription className="text-sm">View and manage all delivery and pickup tasks</CardDescription>
+            </div>
+            <Link to="/dashboard/tasks/new">
+              <Button size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                New Task
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4 mb-6 md:flex-row">
@@ -220,10 +227,9 @@ export default function DashboardPage() {
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="delivery">Delivery</SelectItem>
-                <SelectItem value="pickup">Pickup</SelectItem>
-                <SelectItem value="both">Both</SelectItem>
+                <SelectItem value="all">Todos los Tipos</SelectItem>
+                <SelectItem value="retiro">Retiro</SelectItem>
+                <SelectItem value="entrega">Entrega</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -273,6 +279,7 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
     </div>
   )
 }
