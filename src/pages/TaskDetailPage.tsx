@@ -34,7 +34,6 @@ export default function TaskDetailPage() {
     type: "entrega",
     status: "en_preparacion",
     scheduledDate: "",
-    scheduledTime: "",
     pickupAddress: "",
     pickupCity: "",
     pickupContact: "",
@@ -64,7 +63,6 @@ export default function TaskDetailPage() {
         type: task.type,
         status: task.status,
         scheduledDate: new Date(task.scheduledDate).toISOString().split('T')[0],
-        scheduledTime: task.scheduledTime || "",
         pickupAddress: task.pickupAddress,
         pickupCity: task.pickupCity,
         pickupContact: task.pickupContact || "",
@@ -157,7 +155,6 @@ export default function TaskDetailPage() {
         type: task.type,
         status: task.status,
         scheduledDate: new Date(task.scheduledDate).toISOString().split('T')[0],
-        scheduledTime: task.scheduledTime || "",
         pickupAddress: task.pickupAddress,
         pickupCity: task.pickupCity,
         pickupContact: task.pickupContact || "",
@@ -188,7 +185,6 @@ export default function TaskDetailPage() {
       status: "en_preparacion" as const, // Reset to preparation status
       courierId: "", // Unassign courier
       scheduledDate: new Date().toISOString(), // Set to current date
-      scheduledTime: "", // Clear scheduled time
       notes: `Clonada de tarea ${task.id} - ${new Date().toLocaleString()}`, // Add clone note
       updatedAt: new Date().toISOString()
     }
@@ -251,7 +247,7 @@ export default function TaskDetailPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Reference BL</label>
+                  <label className="text-sm font-medium text-muted-foreground">Reference Vexa</label>
                   {isEditing ? (
                     <Input
                       value={formData.referenceBL}

@@ -5,6 +5,7 @@ import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
+import { Checkbox } from "../components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { mockTasks, mockClients, mockCouriers, mockProviders } from "../lib/mock-data"
 import { ArrowLeft, Package, MapPin, Calendar, User, AlertCircle, Save } from "lucide-react"
@@ -23,13 +24,13 @@ export default function EditTaskPage() {
     type: "entrega",
     status: "en_preparacion",
     scheduledDate: "",
-    scheduledTime: "",
     address: "",
     city: "",
     contact: "",
     courierId: "",
     notes: "",
     priority: "normal",
+    photoRequired: true,
     mbl: "",
     hbl: "",
     freightCertificate: "",
@@ -50,13 +51,13 @@ export default function EditTaskPage() {
         type: task.type,
         status: task.status,
         scheduledDate: new Date(task.scheduledDate).toISOString().split('T')[0],
-        scheduledTime: task.scheduledTime || "",
         address: task.pickupAddress || task.deliveryAddress || "",
         city: task.pickupCity || task.deliveryCity || "",
         contact: task.pickupContact || task.deliveryContact || "",
         courierId: task.courierId || "unassigned",
         notes: task.notes || "",
         priority: task.priority || "normal",
+        photoRequired: task.photoRequired || false,
         mbl: task.mbl || "",
         hbl: task.hbl || "",
         freightCertificate: task.freightCertificate || "",
@@ -105,8 +106,17 @@ export default function EditTaskPage() {
     navigate(`/dashboard/tasks/${task.id}`)
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData(prev => {
+      const updates: any = { [field]: value }
+      
+      // Auto-set photoRequired based on task type
+      if (field === "type") {
+        updates.photoRequired = value === "entrega"
+      }
+      
+      return { ...prev, ...updates }
+    })
   }
 
   const handleClientChange = (clientId: string) => {
@@ -161,7 +171,7 @@ export default function EditTaskPage() {
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="referenceBL">Reference BL *</Label>
+                <Label htmlFor="referenceBL">Reference Vexa *</Label>
                 <Input
                   id="referenceBL"
                   placeholder="BL-2024-001"
@@ -247,13 +257,33 @@ export default function EditTaskPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="baja">Baja</SelectItem>
                     <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="urgente">Urgente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Photo Required Checkbox */}
+            <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/30">
+              <Checkbox 
+                id="photoRequired"
+                checked={formData.photoRequired}
+                onCheckedChange={(checked) => handleInputChange("photoRequired", checked as boolean)}
+              />
+              <Label 
+                htmlFor="photoRequired" 
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Foto obligatoria al finalizar tarea
+                <span className="block text-xs text-muted-foreground font-normal mt-1">
+                  {formData.type === "entrega" 
+                    ? "Recomendado para entregas" 
+                    : "Opcional para retiros"}
+                </span>
+              </Label>
             </div>
           </CardContent>
         </Card>
@@ -339,15 +369,6 @@ export default function EditTaskPage() {
                   value={formData.scheduledDate}
                   onChange={(e) => handleInputChange("scheduledDate", e.target.value)}
                   required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="scheduledTime">Scheduled Time</Label>
-                <Input
-                  id="scheduledTime"
-                  type="time"
-                  value={formData.scheduledTime}
-                  onChange={(e) => handleInputChange("scheduledTime", e.target.value)}
                 />
               </div>
             </div>

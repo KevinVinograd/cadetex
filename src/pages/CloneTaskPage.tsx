@@ -24,7 +24,6 @@ export default function CloneTaskPage() {
     type: "entrega",
     status: "en_preparacion",
     scheduledDate: "",
-    scheduledTime: "",
     address: "",
     city: "",
     contact: "",
@@ -78,7 +77,6 @@ export default function CloneTaskPage() {
         type: clonedTask.type,
         status: clonedTask.status,
         scheduledDate: new Date(clonedTask.scheduledDate).toISOString().split('T')[0],
-        scheduledTime: clonedTask.scheduledTime || "",
         address,
         city,
         contact,
@@ -141,7 +139,6 @@ export default function CloneTaskPage() {
         type: formData.type,
         status: formData.status,
         scheduledDate: formData.scheduledDate,
-        scheduledTime: formData.scheduledTime,
         pickupAddress: formData.type === "retiro" ? formData.address : "",
         pickupCity: formData.type === "retiro" ? formData.city : "",
         pickupContact: formData.type === "retiro" ? formData.contact : "",
@@ -231,7 +228,7 @@ export default function CloneTaskPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Reference BL *</label>
+                    <label className="text-sm font-medium text-muted-foreground">Reference Vexa *</label>
                     <Input
                       value={formData.referenceBL}
                       onChange={(e) => handleInputChange("referenceBL", e.target.value)}
@@ -274,15 +271,6 @@ export default function CloneTaskPage() {
                       onChange={(e) => handleInputChange("scheduledDate", e.target.value)}
                       className="mt-1"
                       required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Hora Programada</label>
-                    <Input
-                      type="time"
-                      value={formData.scheduledTime}
-                      onChange={(e) => handleInputChange("scheduledTime", e.target.value)}
-                      className="mt-1"
                     />
                   </div>
                   <div>

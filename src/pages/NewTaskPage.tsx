@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
+import { Checkbox } from "../components/ui/checkbox"
+import { Label } from "../components/ui/label"
 import { mockClients, mockCouriers, mockProviders } from "../lib/mock-data"
 import { 
   ArrowLeft, 
@@ -23,14 +25,14 @@ export default function NewTaskPage() {
     contactId: "",
     type: "entrega",
     status: "en_preparacion",
-    scheduledDate: "",
-    scheduledTime: "",
+    scheduledDate: new Date().toISOString().split('T')[0],
     address: "",
     city: "",
     contact: "",
     courierId: "unassigned",
     notes: "",
     priority: "normal",
+    photoRequired: true, // Por defecto true
     mbl: "",
     hbl: "",
     freightCertificate: "",
@@ -38,8 +40,17 @@ export default function NewTaskPage() {
     bunkerCertificate: ""
   })
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData(prev => {
+      const updates: any = { [field]: value }
+      
+      // Auto-set photoRequired based on task type
+      if (field === "type") {
+        updates.photoRequired = value === "entrega"
+      }
+      
+      return { ...prev, ...updates }
+    })
   }
 
   const handleClientChange = (clientId: string) => {
@@ -85,7 +96,6 @@ export default function NewTaskPage() {
         type: formData.type,
         status: formData.status,
         scheduledDate: formData.scheduledDate,
-        scheduledTime: formData.scheduledTime,
         pickupAddress: formData.type === "retiro" ? formData.address : "",
         pickupCity: formData.type === "retiro" ? formData.city : "",
         pickupContact: formData.type === "retiro" ? formData.contact : "",
@@ -95,6 +105,7 @@ export default function NewTaskPage() {
         courierId: formData.courierId === "unassigned" ? "" : formData.courierId,
         notes: formData.notes,
         priority: formData.priority,
+        photoRequired: formData.photoRequired,
         mbl: formData.mbl,
         hbl: formData.hbl,
         freightCertificate: formData.freightCertificate,
@@ -171,7 +182,7 @@ export default function NewTaskPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Reference BL *</label>
+                    <label className="text-sm font-medium text-muted-foreground">Reference Vexa *</label>
                     <Input
                       value={formData.referenceBL}
                       onChange={(e) => handleInputChange("referenceBL", e.target.value)}
@@ -217,15 +228,6 @@ export default function NewTaskPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Hora Programada</label>
-                    <Input
-                      type="time"
-                      value={formData.scheduledTime}
-                      onChange={(e) => handleInputChange("scheduledTime", e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
                     <label className="text-sm font-medium text-muted-foreground">Prioridad</label>
                     <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
                       <SelectTrigger className="mt-1">
@@ -239,6 +241,26 @@ export default function NewTaskPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Photo Required Checkbox */}
+                <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/30">
+                  <Checkbox 
+                    id="photoRequired"
+                    checked={formData.photoRequired}
+                    onCheckedChange={(checked) => handleInputChange("photoRequired", checked as boolean)}
+                  />
+                  <Label 
+                    htmlFor="photoRequired" 
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Foto obligatoria al finalizar tarea
+                    <span className="block text-xs text-muted-foreground font-normal mt-1">
+                      {formData.type === "entrega" 
+                        ? "Recomendado para entregas (marcado por defecto)" 
+                        : "Opcional para retiros (desmarcado por defecto)"}
+                    </span>
+                  </Label>
                 </div>
               </CardContent>
             </Card>

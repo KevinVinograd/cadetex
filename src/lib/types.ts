@@ -19,7 +19,6 @@ export interface Task {
   bunkerCertificate?: string
   status: TaskStatus
   scheduledDate: string
-  scheduledTime?: string
   pickupAddress: string
   pickupCity: string
   pickupContact: string
@@ -30,6 +29,7 @@ export interface Task {
   courierName?: string
   notes?: string
   priority: Priority
+  photoRequired: boolean // Si la foto es obligatoria
   receiptPhoto?: string // Foto obligatoria del acuse de recibo
   additionalPhotos?: string[] // Fotos adicionales opcionales
   createdAt: string

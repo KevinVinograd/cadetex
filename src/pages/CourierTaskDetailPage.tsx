@@ -1,26 +1,24 @@
-import React, { useState } from "react"
+import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Textarea } from "../components/ui/textarea"
 import { Label } from "../components/ui/label"
-import { mockTasks, mockClients, mockCouriers } from "../lib/mock-data"
+import { Input } from "../components/ui/input"
+import { mockTasks, mockClients } from "../lib/mock-data"
 import { 
   ArrowLeft, 
   Package, 
   MapPin, 
-  Calendar, 
   Clock, 
   CheckCircle2, 
   AlertCircle,
-  Truck,
   Phone,
   Mail,
   Building2,
   Navigation,
   Play,
-  Pause,
   Save,
   MessageSquare
 } from "lucide-react"
@@ -28,12 +26,26 @@ import {
 export default function CourierTaskDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [status, setStatus] = useState("")
   const [notes, setNotes] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
   
   // Find the task by ID
   const task = mockTasks.find(t => t.id === id)
+  
+  // Get the relevant address based on task type
+  const getTaskAddress = () => {
+    return task?.type === "retiro" ? task.pickupAddress : task?.deliveryAddress
+  }
+  
+  // Get the relevant contact based on task type
+  const getTaskContact = () => {
+    return task?.type === "retiro" ? task.pickupContact : task?.deliveryContact
+  }
+  
+  // Get the relevant city based on task type
+  const getTaskCity = () => {
+    return task?.type === "retiro" ? task.pickupCity : task?.deliveryCity
+  }
   
   if (!task) {
     return (
@@ -51,7 +63,6 @@ export default function CourierTaskDetailPage() {
   }
 
   const client = mockClients.find(c => c.id === task.clientId)
-  const courier = mockCouriers.find(c => c.id === task.courierId)
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -90,7 +101,6 @@ export default function CourierTaskDetailPage() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000))
     
-    setStatus(newStatus)
     setIsUpdating(false)
   }
 
@@ -105,9 +115,9 @@ export default function CourierTaskDetailPage() {
     setIsUpdating(false)
   }
 
-  const canStartTask = task.status === "pending"
-  const canCompleteTask = task.status === "confirmed"
-  const isTaskCompleted = task.status === "completed"
+  const canStartTask = task.status === "en_preparacion" || task.status === "pendiente_confirmar"
+  const canCompleteTask = task.status === "confirmada_tomar"
+  const isTaskCompleted = task.status === "finalizada"
 
   return (
     <div className="space-y-8 p-8">
@@ -153,12 +163,8 @@ export default function CourierTaskDetailPage() {
                   <div className="mt-1">{getStatusBadge(task.status)}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Scheduled Date</label>
+                  <label className="text-sm font-medium text-muted-foreground">Fecha Programada</label>
                   <p className="text-sm">{new Date(task.scheduledDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Scheduled Time</label>
-                  <p className="text-sm">{task.scheduledTime || "Not specified"}</p>
                 </div>
               </div>
             </CardContent>
@@ -169,28 +175,39 @@ export default function CourierTaskDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                Delivery Addresses
+                {task.type === "retiro" ? "Dirección de Retiro" : "Dirección de Entrega"}
               </CardTitle>
-              <CardDescription>Pickup and delivery locations</CardDescription>
+              <CardDescription>
+                {task.type === "retiro" ? "Ubicación donde retirar" : "Ubicación donde entregar"}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Pickup Address</label>
+                <label className="text-sm font-medium text-muted-foreground">
+                  {task.type === "retiro" ? "Dirección de Retiro" : "Dirección de Entrega"}
+                </label>
                 <div className="mt-1 p-3 bg-muted rounded-md">
-                  <p className="text-sm">{task.pickupAddress}</p>
-                  <Button variant="ghost" size="sm" className="mt-2">
+                  <p className="text-sm font-medium">{getTaskAddress()}</p>
+                  {getTaskCity() && (
+                    <p className="text-xs text-muted-foreground mt-1">{getTaskCity()}</p>
+                  )}
+                  {getTaskContact() && (
+                    <p className="text-xs text-muted-foreground mt-1">{getTaskContact()}</p>
+                  )}
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => {
+                      const address = getTaskAddress()
+                      if (address) {
+                        const encodedAddress = encodeURIComponent(address)
+                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank')
+                      }
+                    }}
+                  >
                     <Navigation className="h-4 w-4 mr-2" />
-                    Get Directions
-                  </Button>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Delivery Address</label>
-                <div className="mt-1 p-3 bg-muted rounded-md">
-                  <p className="text-sm">{task.deliveryAddress}</p>
-                  <Button variant="ghost" size="sm" className="mt-2">
-                    <Navigation className="h-4 w-4 mr-2" />
-                    Get Directions
+                    Ir a Dirección
                   </Button>
                 </div>
               </div>
@@ -279,48 +296,34 @@ export default function CourierTaskDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Task Actions
+                Estado de la Tarea
               </CardTitle>
-              <CardDescription>Update task status</CardDescription>
+              <CardDescription>Información actual del estado</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Current Status</label>
+                <label className="text-sm font-medium text-muted-foreground">Estado Actual</label>
                 <div className="mt-1">{getStatusBadge(task.status)}</div>
               </div>
               
-              <div className="space-y-2">
-                {canStartTask && (
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleStatusUpdate("confirmed")}
-                    disabled={isUpdating}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    {isUpdating ? "Starting..." : "Start Task"}
-                  </Button>
-                )}
-                
-                {canCompleteTask && (
-                  <Button 
-                    className="w-full" 
-                    variant="outline"
-                    onClick={() => handleStatusUpdate("completed")}
-                    disabled={isUpdating}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    {isUpdating ? "Completing..." : "Mark Complete"}
-                  </Button>
-                )}
-                
-                {isTaskCompleted && (
-                  <div className="text-center py-4">
-                    <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-green-600">Task Completed</p>
-                    <p className="text-xs text-muted-foreground">Great job!</p>
-                  </div>
-                )}
-              </div>
+              {canStartTask && (
+                <Button 
+                  className="w-full" 
+                  onClick={() => handleStatusUpdate("confirmada_tomar")}
+                  disabled={isUpdating}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  {isUpdating ? "Iniciando..." : "Iniciar Tarea"}
+                </Button>
+              )}
+              
+              {isTaskCompleted && (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-green-600">Tarea Completada</p>
+                  <p className="text-xs text-muted-foreground">¡Excelente trabajo!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
