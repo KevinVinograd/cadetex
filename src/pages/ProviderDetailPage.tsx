@@ -2,9 +2,11 @@ import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
+import { Badge } from "../components/ui/badge"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
-import { mockProviders } from "../lib/mock-data"
+import { useProviders } from "../hooks/use-providers"
+import { SuccessDialog } from "../components/ui/success-dialog"
 import { 
   ArrowLeft, 
   Building2, 
@@ -19,20 +21,36 @@ import {
 export default function ProviderDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { providers, isLoading, error, updateProvider, deleteProvider } = useProviders()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  
+  // Estado para el diálogo de éxito
+  const [successDialog, setSuccessDialog] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    type: 'success'
+  })
+  
   const [formData, setFormData] = useState({
     name: "",
     address: "",
     city: "",
-    phone: "",
+    province: "",
+    phoneNumber: "",
     email: "",
-    contact: ""
+    isActive: true
   })
 
   // Find the provider by ID
-  const provider = mockProviders.find(p => p.id === id)
+  const provider = providers.find(p => p.id === id)
 
   // Load provider data into form
   useEffect(() => {
@@ -41,9 +59,10 @@ export default function ProviderDetailPage() {
         name: provider.name,
         address: provider.address,
         city: provider.city,
-        phone: provider.phone || "",
+        province: provider.province,
+        phoneNumber: provider.phoneNumber || "",
         email: provider.email || "",
-        contact: provider.contact || ""
+        isActive: provider.isActive
       })
     }
   }, [provider])
@@ -53,16 +72,30 @@ export default function ProviderDetailPage() {
   }
 
   const handleSave = async () => {
+    if (!provider) return
+    
     setIsSaving(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log("Provider updated:", formData)
+      await updateProvider(provider.id, formData)
       setIsEditing(false)
-      alert("Provider updated successfully!")
+      
+      // Mostrar diálogo de éxito
+      setSuccessDialog({
+        isOpen: true,
+        title: "Proveedor actualizado exitosamente",
+        description: `Los datos de ${formData.name} han sido actualizados correctamente.`,
+        type: 'success'
+      })
     } catch (error) {
       console.error('Error updating provider:', error)
-      alert('Error updating provider. Please try again.')
+      
+      // Mostrar diálogo de error
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error al actualizar proveedor",
+        description: "No se pudo actualizar el proveedor. Por favor intenta de nuevo.",
+        type: 'error'
+      })
     } finally {
       setIsSaving(false)
     }
@@ -75,43 +108,96 @@ export default function ProviderDetailPage() {
         name: provider.name,
         address: provider.address,
         city: provider.city,
-        phone: provider.phone || "",
+        province: provider.province,
+        phoneNumber: provider.phoneNumber || "",
         email: provider.email || "",
-        contact: provider.contact || ""
+        isActive: provider.isActive
       })
     }
     setIsEditing(false)
   }
 
   const handleDelete = async () => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar al proveedor ${provider?.name}?`)) {
+    if (!provider) return
+    
+    if (!confirm(`¿Estás seguro de que quieres eliminar al proveedor ${provider.name}?`)) {
       return
     }
 
     setIsDeleting(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      alert(`Proveedor ${provider?.name} eliminado exitosamente`)
-      navigate("/dashboard/providers")
+      await deleteProvider(provider.id)
+      
+      // Mostrar diálogo de éxito
+      setSuccessDialog({
+        isOpen: true,
+        title: "Proveedor eliminado exitosamente",
+        description: `${provider.name} ha sido eliminado correctamente.`,
+        type: 'success'
+      })
+      
+      // Navegar después de un breve delay para que se vea el mensaje
+      setTimeout(() => {
+        navigate("/dashboard/providers")
+      }, 1500)
     } catch (error) {
       console.error('Error deleting provider:', error)
-      alert('Error eliminando proveedor. Intenta de nuevo.')
+      
+      // Mostrar diálogo de error
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error al eliminar proveedor",
+        description: "No se pudo eliminar el proveedor. Por favor intenta de nuevo.",
+        type: 'error'
+      })
     } finally {
       setIsDeleting(false)
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Cargando proveedor...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Error al cargar proveedor</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => navigate("/dashboard/providers")}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver a Proveedores
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!provider) {
     return (
-      <div className="space-y-8 p-8">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h1 className="text-2xl font-semibold">Proveedor No Encontrado</h1>
-          <p className="text-muted-foreground mb-4">El proveedor que buscas no existe.</p>
-          <Button onClick={() => navigate("/dashboard/providers")}>
-            Volver a Proveedores
-          </Button>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h1 className="text-2xl font-semibold">Proveedor No Encontrado</h1>
+            <p className="text-muted-foreground mb-4">El proveedor que buscas no existe.</p>
+            <Button onClick={() => navigate("/dashboard/providers")}>
+              Volver a Proveedores
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -221,14 +307,14 @@ export default function ProviderDetailPage() {
                 <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
                 {isEditing ? (
                   <Input
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    value={formData.phoneNumber}
+                    onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
                     className="mt-1"
                   />
-                ) : provider.phone ? (
+                ) : provider.phoneNumber ? (
                   <div className="flex items-center gap-2 mt-1">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-sm">{provider.phone}</p>
+                    <p className="text-sm">{provider.phoneNumber}</p>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">No phone provided</p>
@@ -246,6 +332,37 @@ export default function ProviderDetailPage() {
                   <p className="text-sm">{provider.contact}</p>
                 ) : (
                   <p className="text-sm text-muted-foreground">No contact provided</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Provincia</label>
+                {isEditing ? (
+                  <Input
+                    value={formData.province}
+                    onChange={(e) => handleInputChange("province", e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm mt-1">{provider.province}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Estado</label>
+                {isEditing ? (
+                  <select
+                    value={formData.isActive ? "active" : "inactive"}
+                    onChange={(e) => handleInputChange("isActive", e.target.value === "active")}
+                    className="mt-1 block w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  >
+                    <option value="active">Activo</option>
+                    <option value="inactive">Inactivo</option>
+                  </select>
+                ) : (
+                  <div className="mt-1">
+                    <Badge variant={provider.isActive ? "default" : "secondary"}>
+                      {provider.isActive ? "Activo" : "Inactivo"}
+                    </Badge>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -307,6 +424,15 @@ export default function ProviderDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <SuccessDialog
+        isOpen={successDialog.isOpen}
+        onClose={() => setSuccessDialog(prev => ({ ...prev, isOpen: false }))}
+        title={successDialog.title}
+        description={successDialog.description}
+        type={successDialog.type}
+      />
     </div>
   )
 }

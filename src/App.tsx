@@ -8,7 +8,6 @@ import DashboardPage from './pages/DashboardPage'
 import { DashboardLayout } from './components/dashboard-layout'
 import ClientsPage from './pages/ClientsPage'
 import ClientDetailPage from './pages/ClientDetailPage'
-import EditClientPage from './pages/EditClientPage'
 import NewClientPage from './pages/NewClientPage'
 import CouriersPage from './pages/CouriersPage'
 import CourierDetailPage from './pages/CourierDetailPage'
@@ -27,6 +26,8 @@ import CourierTasksPage from './pages/CourierTasksPage'
 import CourierTaskDetailPage from './pages/CourierTaskDetailPage'
 import CompleteTaskPage from './pages/CompleteTaskPage'
 import SuperAdminPage from './pages/SuperAdminPage'
+import UserManagementPage from './pages/UserManagementPage'
+import OrganizationUsersPage from './pages/OrganizationUsersPage'
 
 function App() {
   return (
@@ -41,7 +42,6 @@ function App() {
             <Route index element={<DashboardPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="clients/:id" element={<ClientDetailPage />} />
-            <Route path="clients/:id/edit" element={<EditClientPage />} />
             <Route path="clients/new" element={<NewClientPage />} />
             <Route path="couriers" element={<CouriersPage />} />
             <Route path="couriers/:id" element={<CourierDetailPage />} />
@@ -67,6 +67,13 @@ function App() {
           
           {/* Super admin routes */}
           <Route path="/superadmin" element={<SuperAdminPage />} />
+          <Route path="/user-management" element={<UserManagementPage />} />
+          <Route path="/organization-users/:organizationId" element={<OrganizationUsersPage />} />
+          
+          {/* Organization admin routes */}
+          <Route path="/dashboard/clients" element={<ClientsPage />} />
+          <Route path="/dashboard/providers" element={<ProvidersPage />} />
+          <Route path="/dashboard/couriers" element={<CouriersPage />} />
           
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/login" replace />} />

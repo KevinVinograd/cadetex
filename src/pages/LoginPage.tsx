@@ -1,58 +1,45 @@
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
-import { mockOrganizations } from "../lib/mock-data"
 import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Package, Sparkles } from "lucide-react"
 import { ThemeToggle } from "../components/theme-toggle"
+import { useAuth } from "../hooks/use-auth"
+import { Alert, AlertDescription } from "../components/ui/alert"
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
-    // Simulate login - in production, this would call an API
-    setTimeout(() => {
-      // Check org-admins from stored orgs first
-      const stored = localStorage.getItem("orgs")
-      const orgs = stored ? JSON.parse(stored) : mockOrganizations
-      const isOrgAdmin = orgs.some((o: { adminEmail?: string }) => o.adminEmail?.toLowerCase() === email.toLowerCase())
-
-      // Initialize organizations if not already stored
-      if (!stored) {
-        localStorage.setItem("orgs", JSON.stringify(orgs))
-      }
-
-      if (isOrgAdmin) {
-        localStorage.setItem("userRole", "orgadmin")
-        localStorage.setItem("userName", email)
-        localStorage.setItem("userEmail", email)
-        navigate("/dashboard")
-      } else if (email.includes("superadmin")) {
-        localStorage.setItem("userRole", "superadmin")
-        localStorage.setItem("userName", "Super Admin")
-        localStorage.setItem("userEmail", email)
+    try {
+      const response = await login(email, password)
+      
+      // Navigate based on role from the response
+      const userRole = response.user.role?.toLowerCase()
+      if (userRole === 'superadmin') {
         navigate("/superadmin")
-      } else if (email.includes("admin")) {
-        localStorage.setItem("userRole", "orgadmin")
-        localStorage.setItem("userName", "Admin User")
-        localStorage.setItem("userEmail", email)
-        navigate("/dashboard")
-      } else {
-        localStorage.setItem("userRole", "courier")
-        localStorage.setItem("userName", "Courier User")
-        localStorage.setItem("userEmail", email)
-        localStorage.setItem("courierId", "courier-1") // Assign courier ID for demo
+      } else if (userRole === 'courier') {
         navigate("/courier")
+      } else {
+        navigate("/dashboard")
       }
-    }, 1000)
+    } catch (error) {
+      console.error("Login error:", error)
+      setError("Invalid email or password. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -86,6 +73,12 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium">
                 Email
@@ -122,7 +115,7 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
             <p className="text-xs text-muted-foreground text-center text-pretty pt-2">
-              Demo: Use email with &quot;admin&quot; for admin access, or any other email for courier access
+              Enter your credentials to access the system
             </p>
           </form>
         </CardContent>

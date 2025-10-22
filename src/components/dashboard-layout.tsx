@@ -15,36 +15,33 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const pathname = location.pathname
-  const [userName, setUserName] = useState("")
-  const [userRole, setUserRole] = useState("")
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const { role } = useAuth()
+  const { role, email, user, logout, isLoading } = useAuth()
 
   useEffect(() => {
-    const name = localStorage.getItem("userName")
-    const role = localStorage.getItem("userRole")
-    if (!name || !role) {
+    if (!isLoading && !role) {
       navigate("/login")
-    } else {
-      setUserName(name)
-      setUserRole(role)
     }
-  }, [navigate])
+  }, [role, isLoading, navigate])
 
   const handleLogout = () => {
-    localStorage.removeItem("userName")
-    localStorage.removeItem("userRole")
+    logout()
     navigate("/login")
   }
 
   // Different navigation items based on user role
   const getNavItems = () => {
-    if (role === "courier") {
+    if (role === "COURIER") {
       return [
         { href: "/courier", label: "My Tasks", icon: Package },
       ]
+    } else if (role === "SUPERADMIN") {
+      return [
+        { href: "/superadmin", label: "Organizaciones", icon: Building2 },
+        { href: "/user-management", label: "Usuarios", icon: Users },
+      ]
     } else {
-      // For orgadmin and superadmin
+      // For orgadmin
       return [
         { href: "/dashboard", label: "Tasks", icon: LayoutDashboard },
         { href: "/dashboard/clients", label: "Clients", icon: Users },
@@ -86,7 +83,9 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
               <div className="p-6 border-b border-sidebar-border">
                 <div className="flex items-center justify-between">
                   <h1 className="text-xl font-bold text-sidebar-foreground text-balance">
-                    {role === "courier" ? "Courier Portal" : "Courier Management"}
+                    {role === "COURIER" ? "Courier Portal" : 
+                     role === "SUPERADMIN" ? "Super Admin" : 
+                     "Courier Management"}
                   </h1>
                   <ThemeToggle />
                 </div>
@@ -118,8 +117,8 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
           <div className="p-4 border-t border-sidebar-border">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-sm font-medium text-sidebar-foreground">{userName}</p>
-                <p className="text-xs text-muted-foreground capitalize">{userRole}</p>
+                <p className="text-sm font-medium text-sidebar-foreground">{user?.name || email}</p>
+                <p className="text-xs text-muted-foreground capitalize">{role}</p>
               </div>
             </div>
             <Button variant="outline" size="sm" className="w-full bg-transparent" onClick={handleLogout}>

@@ -16,7 +16,6 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { role, isLoading } = useAuth()
   
-  // All hooks must be called before any conditional returns
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
@@ -39,248 +38,234 @@ export default function DashboardPage() {
     return null
   }
 
-  // Show all tasks for now - we'll fix organization filtering later
-  const orgFiltered = mockTasks
-
-  const filteredTasks = orgFiltered.filter((task) => {
-    const matchesSearch =
-      task.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.referenceBL.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  // Filter tasks based on search and filters
+  const filteredTasks = mockTasks.filter((task) => {
+    const matchesSearch = 
+      task.referenceBL?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.providerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.courierName?.toLowerCase().includes(searchQuery.toLowerCase())
-
+    
     const matchesStatus = statusFilter === "all" || task.status === statusFilter
     const matchesType = typeFilter === "all" || task.type === typeFilter
-
+    
     return matchesSearch && matchesStatus && matchesType
   })
 
-  const stats = {
-    total: mockTasks.length,
-    en_preparacion: mockTasks.filter((t) => t.status === "en_preparacion").length,
-    pendiente_confirmar: mockTasks.filter((t) => t.status === "pendiente_confirmar").length,
-    confirmada_tomar: mockTasks.filter((t) => t.status === "confirmada_tomar").length,
-    finalizada: mockTasks.filter((t) => t.status === "finalizada").length,
-    cancelada: mockTasks.filter((t) => t.status === "cancelada").length,
+  // Calculate task statistics
+  const totalTasks = mockTasks.length
+  const pendingTasks = mockTasks.filter(task => task.status === "pendiente_confirmar").length
+  const inProgressTasks = mockTasks.filter(task => task.status === "confirmada_tomar").length
+  const completedTasks = mockTasks.filter(task => task.status === "finalizada").length
+
+  const handleExportTasks = () => {
+    exportTasksToExcel(filteredTasks)
   }
 
-  const getStatusBadge = (status: TaskStatus) => {
-    const variants = {
-      en_preparacion: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
-      pendiente_confirmar: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-      confirmada_tomar: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-      finalizada: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-      cancelada: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-    }
-    const labels = {
-      en_preparacion: "En Preparación",
-      pendiente_confirmar: "Pendiente Confirmar",
-      confirmada_tomar: "Confirmada Tomar",
-      finalizada: "Finalizada",
-      cancelada: "Cancelada",
-    }
-    return <Badge className={variants[status]}>{labels[status]}</Badge>
-  }
-
-  const getTypeBadge = (type: string) => {
-    const variants = {
-      retiro: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-      entrega: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-    }
-    const labels = {
-      retiro: "Retiro",
-      entrega: "Entrega",
-    }
-    return <Badge className={variants[type as keyof typeof variants]}>{labels[type as keyof typeof labels] || type}</Badge>
-  }
-
-  const handleExportCompleted = () => {
-    exportTasksToExcel(mockTasks, `tareas-completadas-${new Date().toISOString().split('T')[0]}.xlsx`)
-  }
-
-  const handleExportAll = () => {
-    exportAllTasksToExcel(mockTasks, `todas-las-tareas-${new Date().toISOString().split('T')[0]}.xlsx`)
+  const handleExportAllTasks = () => {
+    exportAllTasksToExcel(mockTasks)
   }
 
   return (
-    <div className="space-y-8 p-8">
-      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Manage and track all delivery tasks</p>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview of your organization's tasks and activities
+          </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={handleExportCompleted} className="gap-2">
-            <Download className="h-4 w-4" />
-            Export Completed
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={handleExportTasks}>
+            <Download className="h-4 w-4 mr-2" />
+            Export Filtered
           </Button>
-          <Button variant="outline" onClick={handleExportAll} className="gap-2">
-            <Download className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={handleExportAllTasks}>
+            <Download className="h-4 w-4 mr-2" />
             Export All
           </Button>
         </div>
       </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <Card className="border-2 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Package className="h-4 w-4 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.total}</div>
-                <p className="text-xs text-muted-foreground mt-1">All time tasks</p>
-              </CardContent>
-            </Card>
-            <Card className="border-2 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">En Preparación</CardTitle>
-                <div className="p-2 bg-gray-500/10 rounded-lg">
-                  <Clock className="h-4 w-4 text-gray-600 dark:text-gray-500" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.en_preparacion}</div>
-                <p className="text-xs text-muted-foreground mt-1">Tareas futuras</p>
-              </CardContent>
-            </Card>
-            <Card className="border-2 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pendiente Confirmar</CardTitle>
-                <div className="p-2 bg-yellow-500/10 rounded-lg">
-                  <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.pendiente_confirmar}</div>
-                <p className="text-xs text-muted-foreground mt-1">Requieren revisión</p>
-              </CardContent>
-            </Card>
-            <Card className="border-2 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Confirmada Tomar</CardTitle>
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-500" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.confirmada_tomar}</div>
-                <p className="text-xs text-muted-foreground mt-1">Lista para ejecutar</p>
-              </CardContent>
-            </Card>
-            <Card className="border-2 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Finalizada</CardTitle>
-                <div className="p-2 bg-green-500/10 rounded-lg">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats.finalizada}</div>
-                <p className="text-xs text-muted-foreground mt-1">Completadas</p>
-              </CardContent>
-            </Card>
-          </div>
-
-      <Card className="border">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-medium">Tasks</CardTitle>
-              <CardDescription className="text-sm">View and manage all delivery and pickup tasks</CardDescription>
+      {/* Task Statistics */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <Card className="border-2 hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Package className="h-4 w-4 text-primary" />
             </div>
-            <Link to="/dashboard/tasks/new">
-              <Button size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                New Task
-              </Button>
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-4 mb-6 md:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by client, BL reference, or courier..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{totalTasks}</div>
+            <p className="text-xs text-muted-foreground mt-1">All tasks</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-2 hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <div className="p-2 bg-yellow-500/10 rounded-lg">
+              <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
             </div>
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatus | "all")}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="en_preparacion">En Preparación</SelectItem>
-                    <SelectItem value="pendiente_confirmar">Pendiente Confirmar</SelectItem>
-                    <SelectItem value="confirmada_tomar">Confirmada Tomar</SelectItem>
-                    <SelectItem value="finalizada">Finalizada</SelectItem>
-                    <SelectItem value="cancelada">Cancelada</SelectItem>
-                  </SelectContent>
-                </Select>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los Tipos</SelectItem>
-                <SelectItem value="retiro">Retiro</SelectItem>
-                <SelectItem value="entrega">Entrega</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{pendingTasks}</div>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting action</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-2 hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-500" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{inProgressTasks}</div>
+            <p className="text-xs text-muted-foreground mt-1">Currently active</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-2 hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <div className="p-2 bg-green-500/10 rounded-lg">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{completedTasks}</div>
+            <p className="text-xs text-muted-foreground mt-1">Completadas</p>
+          </CardContent>
+        </Card>
+      </div>
 
-
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reference BL</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Scheduled Date</TableHead>
-                  <TableHead>Courier</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTasks.length === 0 ? (
+      {/* Tasks Table */}
+      <div className="space-y-4">
+        <Card className="border">
+          <CardHeader className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-medium">Tasks</CardTitle>
+                <CardDescription className="text-sm">View and manage all delivery and pickup tasks</CardDescription>
+              </div>
+              <Link to="/dashboard/tasks/new">
+                <Button size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  New Task
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4 mb-6 md:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatus | "all")}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="en_preparacion">En Preparación</SelectItem>
+                  <SelectItem value="pendiente_confirmar">Pendiente Confirmar</SelectItem>
+                  <SelectItem value="confirmada_tomar">Confirmada Tomar</SelectItem>
+                  <SelectItem value="finalizada">Finalizada</SelectItem>
+                  <SelectItem value="cancelada">Cancelada</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="retiro">Retiro</SelectItem>
+                  <SelectItem value="entrega">Entrega</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
-                      No tasks found
-                    </TableCell>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Provider</TableHead>
+                    <TableHead>Courier</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Scheduled</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredTasks.map((task) => (
-                    <TableRow key={task.id}>
-                      <TableCell className="font-medium">{task.referenceBL}</TableCell>
-                      <TableCell>{task.clientName}</TableCell>
-                      <TableCell>{getTypeBadge(task.type)}</TableCell>
-                      <TableCell>{getStatusBadge(task.status)}</TableCell>
-                      <TableCell>{new Date(task.scheduledDate).toLocaleDateString()}</TableCell>
-                      <TableCell>{task.courierName || "Unassigned"}</TableCell>
-                      <TableCell className="text-right">
-                        <Link to={`/dashboard/tasks/${task.id}`}>
-                          <Button variant="ghost" size="sm" title="View Details">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                </TableHeader>
+                <TableBody>
+                  {filteredTasks.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center text-muted-foreground">
+                        No tasks found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
+                  ) : (
+                    filteredTasks.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell className="font-medium">{task.referenceBL || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{task.type}</Badge>
+                        </TableCell>
+                        <TableCell>{task.clientName || "-"}</TableCell>
+                        <TableCell>{task.providerName || "-"}</TableCell>
+                        <TableCell>{task.courierName || "-"}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              task.status === "finalizada" ? "default" :
+                              task.status === "confirmada_tomar" ? "secondary" :
+                              task.status === "pendiente_confirmar" ? "outline" : "destructive"
+                            }
+                          >
+                            {task.status.replace("_", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              task.priority === "urgente" ? "destructive" :
+                              task.priority === "alta" ? "default" :
+                              task.priority === "normal" ? "secondary" : "outline"
+                            }
+                          >
+                            {task.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{task.scheduledDate || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <Link to={`/dashboard/tasks/${task.id}`}>
+                            <Button variant="ghost" size="sm" title="View Details">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
-

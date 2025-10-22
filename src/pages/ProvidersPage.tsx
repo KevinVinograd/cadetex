@@ -1,119 +1,255 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import { Button } from "../components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
-import { mockProviders } from "../lib/mock-data"
-import { 
-  Plus, 
-  Search, 
-  Eye, 
-  Building2,
-  MapPin,
-  Phone,
-  Mail
-} from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
+import { CornerLogout } from "../components/ui/corner-logout"
+import { useAuth } from "../hooks/use-auth"
+import { useProviders } from "../hooks/use-providers"
+import { Alert, AlertDescription } from "../components/ui/alert"
+import { Loader2, Plus, Search, Eye, Trash2, ArrowLeft, AlertCircle } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
+import { SuccessDialog } from "../components/ui/success-dialog"
 
 export default function ProvidersPage() {
-  const [searchTerm, setSearchTerm] = useState("")
+  const navigate = useNavigate()
+  const { role, organizationId } = useAuth()
+  const { providers, isLoading, error, deleteProvider, getProvidersByOrganization } = useProviders()
+  
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [providerToDelete, setProviderToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Estados para diálogos
+  const [successDialog, setSuccessDialog] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    type: 'success'
+  })
 
-  const filteredProviders = mockProviders.filter(provider =>
-    provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    provider.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    provider.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  if (role !== "orgadmin") {
+    navigate("/login")
+    return null
+  }
 
-  return (
-    <div className="space-y-8 p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Proveedores</h1>
-          <p className="text-sm text-muted-foreground">Gestiona los proveedores del sistema</p>
+  const orgProviders = organizationId ? getProvidersByOrganization(organizationId) : []
+  
+  const filteredProviders = orgProviders.filter((provider) => {
+    const matchesSearch = 
+      provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      provider.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      provider.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      provider.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    return matchesSearch
+  })
+
+  const showSuccess = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    setSuccessDialog({
+      isOpen: true,
+      title,
+      description,
+      type
+    })
+  }
+
+  const handleDelete = (providerId: string) => {
+    setProviderToDelete(providerId)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!providerToDelete) return
+    
+    try {
+      setIsDeleting(true)
+      await deleteProvider(providerToDelete)
+      setIsDeleteDialogOpen(false)
+      setProviderToDelete(null)
+      showSuccess("Proveedor Eliminado", "El proveedor ha sido eliminado exitosamente.")
+    } catch (err) {
+      showSuccess("Error", "Error al eliminar el proveedor", "error")
+      console.error("Failed to delete provider:", err)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <CornerLogout />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </div>
+    )
+  }
 
-      {/* Search and Filters */}
-      <Card className="border">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Buscar proveedores..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <CornerLogout />
+      
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver al Dashboard
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Gestión de Proveedores</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Administra los proveedores de tu organización
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <Link to="/dashboard/providers/new">
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Proveedor
+          </Button>
+        </Link>
+      </div>
 
-      {/* Providers List */}
-      <Card className="border">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Lista de Proveedores</span>
-            <Button asChild>
-              <Link to="/dashboard/providers/new">
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Proveedor
-              </Link>
-            </Button>
-          </CardTitle>
+          <CardTitle>Lista de Proveedores</CardTitle>
           <CardDescription>
-            {filteredProviders.length} proveedor{filteredProviders.length !== 1 ? 'es' : ''} encontrado{filteredProviders.length !== 1 ? 's' : ''}
+            {filteredProviders.length} proveedor{filteredProviders.length !== 1 ? 'es' : ''} en tu organización
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredProviders.map((provider) => (
-              <div
-                key={provider.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Building2 className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-lg">{provider.name}</h3>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        <span>{provider.city}</span>
-                      </div>
-                      {provider.phone && (
-                        <div className="flex items-center gap-1">
-                          <Phone className="h-4 w-4" />
-                          <span>{provider.phone}</span>
-                        </div>
-                      )}
-                      {provider.email && (
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-4 w-4" />
-                          <span>{provider.email}</span>
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{provider.address}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link to={`/dashboard/providers/${provider.id}`}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Ver Detalles
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            ))}
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Search */}
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre, dirección, ciudad o email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
           </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Dirección</TableHead>
+                <TableHead>Ciudad</TableHead>
+                <TableHead>Teléfono</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProviders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    {searchQuery ? "No se encontraron proveedores con ese criterio" : "No hay proveedores registrados"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredProviders.map((provider) => (
+                  <TableRow key={provider.id}>
+                    <TableCell className="font-medium">{provider.name}</TableCell>
+                    <TableCell>{provider.address}</TableCell>
+                    <TableCell>{provider.city}</TableCell>
+                    <TableCell>{provider.phoneNumber || "N/A"}</TableCell>
+                    <TableCell>{provider.email || "N/A"}</TableCell>
+                    <TableCell>
+                      <Badge variant={provider.isActive ? "default" : "secondary"}>
+                        {provider.isActive ? "Activo" : "Inactivo"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-1 justify-end">
+                        <Link to={`/dashboard/providers/${provider.id}`}>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Ver y Editar">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(provider.id)}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar Proveedor</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que quieres eliminar este proveedor? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <SuccessDialog
+        isOpen={successDialog.isOpen}
+        onClose={() => setSuccessDialog(prev => ({ ...prev, isOpen: false }))}
+        title={successDialog.title}
+        description={successDialog.description}
+        type={successDialog.type}
+      />
     </div>
   )
 }

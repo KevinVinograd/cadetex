@@ -1,121 +1,271 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
+import { Badge } from "../components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { mockCouriers } from "../lib/mock-data"
-import { 
-  Plus, 
-  Search, 
-  Eye, 
-  Truck,
-  Phone,
-  Mail,
-  Package
-} from "lucide-react"
+import { CornerLogout } from "../components/ui/corner-logout"
+import { useAuth } from "../hooks/use-auth"
+import { useCouriers } from "../hooks/use-couriers"
+import { Alert, AlertDescription } from "../components/ui/alert"
+import { Loader2, Plus, Search, Eye, Edit, Trash2, ArrowLeft, AlertCircle, CheckCircle, XCircle } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
+import { SuccessDialog } from "../components/ui/success-dialog"
 
 export default function CouriersPage() {
+  const navigate = useNavigate()
+  const { role, organizationId } = useAuth()
+  const { couriers, isLoading, error, deleteCourier, getCouriersByOrganization } = useCouriers()
+  
   const [searchQuery, setSearchQuery] = useState("")
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [courierToDelete, setCourierToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Estados para diálogos
+  const [successDialog, setSuccessDialog] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    type: 'success'
+  })
 
-  const filteredCouriers = mockCouriers.filter(
-    (courier) =>
+  if (role !== "orgadmin") {
+    navigate("/login")
+    return null
+  }
+
+  const orgCouriers = organizationId ? getCouriersByOrganization(organizationId) : []
+  
+  const filteredCouriers = orgCouriers.filter((courier) => {
+    const matchesSearch = 
       courier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      courier.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      courier.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+      courier.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      courier.phoneNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      courier.vehicleType?.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    return matchesSearch
+  })
 
+  const showSuccess = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    setSuccessDialog({
+      isOpen: true,
+      title,
+      description,
+      type
+    })
+  }
 
-  return (
-    <div className="space-y-8 p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Couriers</h1>
-          <p className="text-sm text-muted-foreground">Gestiona los couriers del sistema</p>
+  const handleDelete = (courierId: string) => {
+    setCourierToDelete(courierId)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!courierToDelete) return
+    
+    try {
+      setIsDeleting(true)
+      await deleteCourier(courierToDelete)
+      setIsDeleteDialogOpen(false)
+      setCourierToDelete(null)
+      showSuccess("Courier Eliminado", "El courier ha sido eliminado exitosamente.")
+    } catch (err) {
+      showSuccess("Error", "Error al eliminar el courier", "error")
+      console.error("Failed to delete courier:", err)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <CornerLogout />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </div>
+    )
+  }
 
-      {/* Search and Filters */}
-      <Card className="border">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Buscar couriers..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <CornerLogout />
+      
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver al Dashboard
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Gestión de Couriers</h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Administra los couriers de tu organización
+            </p>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Couriers List */}
-      <Card className="border">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Lista de Couriers</span>
-            <Button asChild>
-              <Link to="/dashboard/couriers/new">
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Courier
-              </Link>
+        </div>
+        {role === "SUPERADMIN" && (
+          <Link to="/dashboard/couriers/new">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Courier
             </Button>
-          </CardTitle>
+          </Link>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Couriers</CardTitle>
           <CardDescription>
-            {filteredCouriers.length} courier{filteredCouriers.length !== 1 ? 's' : ''} encontrado{filteredCouriers.length !== 1 ? 's' : ''}
+            {filteredCouriers.length} courier{filteredCouriers.length !== 1 ? 's' : ''} en tu organización
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredCouriers.map((courier) => (
-              <div
-                key={courier.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Truck className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-lg">{courier.name}</h3>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-4 w-4" />
-                        <span>{courier.phoneNumber}</span>
-                      </div>
-                      {courier.email && (
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-4 w-4" />
-                          <span>{courier.email}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1">
-                        <Package className="h-4 w-4" />
-                        <span>{courier.activeTasks} tareas activas</span>
-                      </div>
-                    </div>
-                    {courier.address && (
-                      <p className="text-sm text-muted-foreground">{courier.address}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link to={`/dashboard/couriers/${courier.id}`}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Ver Detalles
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            ))}
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Search */}
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre, email, teléfono o vehículo..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
           </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Teléfono</TableHead>
+                <TableHead>Vehículo</TableHead>
+                <TableHead>Estado</TableHead>
+                {role === "SUPERADMIN" && (
+                  <TableHead className="text-right">Acciones</TableHead>
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCouriers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={role === "SUPERADMIN" ? 6 : 5} className="text-center text-muted-foreground py-8">
+                    {searchQuery ? "No se encontraron couriers con ese criterio" : "No hay couriers registrados"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCouriers.map((courier) => (
+                  <TableRow key={courier.id}>
+                    <TableCell className="font-medium">{courier.name}</TableCell>
+                    <TableCell>{courier.email}</TableCell>
+                    <TableCell>{courier.phoneNumber || "N/A"}</TableCell>
+                    <TableCell>{courier.vehicleType || "N/A"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={courier.isActive ? "default" : "secondary"}>
+                          {courier.isActive ? "Activo" : "Inactivo"}
+                        </Badge>
+                        {courier.isActive ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                      </div>
+                    </TableCell>
+                    {role === "SUPERADMIN" && (
+                      <TableCell className="text-right">
+                        <div className="flex gap-1 justify-end">
+                          <Link to={`/dashboard/couriers/${courier.id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Ver detalles">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Link to={`/dashboard/couriers/${courier.id}/edit`}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Editar">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(courier.id)}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar Courier</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que quieres eliminar este courier? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <SuccessDialog
+        isOpen={successDialog.isOpen}
+        onClose={() => setSuccessDialog(prev => ({ ...prev, isOpen: false }))}
+        title={successDialog.title}
+        description={successDialog.description}
+        type={successDialog.type}
+      />
     </div>
   )
 }

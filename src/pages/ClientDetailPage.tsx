@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Badge } from "../components/ui/badge"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
-import { mockClients, mockTasks } from "../lib/mock-data"
+import { mockTasks } from "../lib/mock-data"
+import { useClients } from "../hooks/use-clients"
+import { SuccessDialog } from "../components/ui/success-dialog"
 import { 
   ArrowLeft, 
   Building2, 
@@ -24,18 +26,35 @@ import {
 export default function ClientDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { clients, isLoading, error, updateClient, deleteClient } = useClients()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  
+  // Estado para el diálogo de éxito
+  const [successDialog, setSuccessDialog] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    type: 'success'
+  })
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
-    address: ""
+    phoneNumber: "",
+    address: "",
+    city: "",
+    province: "",
+    isActive: true
   })
 
   // Find the client by ID
-  const client = mockClients.find(c => c.id === id)
+  const client = clients.find(c => c.id === id)
 
   // Load client data into form
   useEffect(() => {
@@ -43,14 +62,48 @@ export default function ClientDetailPage() {
       setFormData({
         name: client.name,
         email: client.email || "",
-        phone: client.phone || "",
-        address: client.address
+        phoneNumber: client.phoneNumber || "",
+        address: client.address,
+        city: client.city,
+        province: client.province,
+        isActive: client.isActive
       })
     }
   }, [client])
   
   // Get tasks for this client
   const clientTasks = mockTasks.filter(task => task.clientId === id)
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Cargando cliente...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Error al cargar cliente</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => navigate("/dashboard/clients")}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver a Clientes
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!client) {
     return (
@@ -99,16 +152,30 @@ export default function ClientDetailPage() {
   }
 
   const handleSave = async () => {
+    if (!client) return
+    
     setIsSaving(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log("Client updated:", formData)
+      await updateClient(client.id, formData)
       setIsEditing(false)
-      alert("Client updated successfully!")
+      
+      // Mostrar diálogo de éxito
+      setSuccessDialog({
+        isOpen: true,
+        title: "Cliente actualizado exitosamente",
+        description: `Los datos de ${formData.name} han sido actualizados correctamente.`,
+        type: 'success'
+      })
     } catch (error) {
       console.error('Error updating client:', error)
-      alert('Error updating client. Please try again.')
+      
+      // Mostrar diálogo de error
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error al actualizar cliente",
+        description: "No se pudo actualizar el cliente. Por favor intenta de nuevo.",
+        type: 'error'
+      })
     } finally {
       setIsSaving(false)
     }
@@ -120,27 +187,49 @@ export default function ClientDetailPage() {
       setFormData({
         name: client.name,
         email: client.email || "",
-        phone: client.phone || "",
-        address: client.address
+        phoneNumber: client.phoneNumber || "",
+        address: client.address,
+        city: client.city,
+        province: client.province,
+        isActive: client.isActive
       })
     }
     setIsEditing(false)
   }
 
   const handleDelete = async () => {
+    if (!client) return
+    
     if (!confirm(`¿Estás seguro de que quieres eliminar al cliente ${client.name}?`)) {
       return
     }
 
     setIsDeleting(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      alert(`Cliente ${client.name} eliminado exitosamente`)
-      navigate("/dashboard/clients")
+      await deleteClient(client.id)
+      
+      // Mostrar diálogo de éxito
+      setSuccessDialog({
+        isOpen: true,
+        title: "Cliente eliminado exitosamente",
+        description: `${client.name} ha sido eliminado correctamente.`,
+        type: 'success'
+      })
+      
+      // Navegar después de un breve delay para que se vea el mensaje
+      setTimeout(() => {
+        navigate("/dashboard/clients")
+      }, 1500)
     } catch (error) {
       console.error('Error deleting client:', error)
-      alert('Error eliminando cliente. Intenta de nuevo.')
+      
+      // Mostrar diálogo de error
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error al eliminar cliente",
+        description: "No se pudo eliminar el cliente. Por favor intenta de nuevo.",
+        type: 'error'
+      })
     } finally {
       setIsDeleting(false)
     }
@@ -164,12 +253,13 @@ export default function ClientDetailPage() {
           {!isEditing ? (
             <>
               <Button 
-                variant="outline" 
+                variant="default" 
                 size="sm" 
                 onClick={() => setIsEditing(true)}
+                className="bg-primary hover:bg-primary/90"
               >
                 <Edit className="h-4 w-4 mr-2" />
-                Editar
+                Editar Cliente
               </Button>
               <Button 
                 variant="outline" 
@@ -188,14 +278,16 @@ export default function ClientDetailPage() {
                 size="sm" 
                 onClick={handleSave}
                 disabled={isSaving}
+                className="bg-green-600 hover:bg-green-700"
               >
-                {isSaving ? "Guardando..." : "Guardar"}
+                {isSaving ? "Guardando..." : "Guardar Cambios"}
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={handleCancel}
                 disabled={isSaving}
+                className="border-red-200 text-red-600 hover:bg-red-50"
               >
                 Cancelar
               </Button>
@@ -203,6 +295,18 @@ export default function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Editing Mode Banner */}
+      {isEditing && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+          <div className="flex items-center gap-2">
+            <Edit className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+              Modo de edición activo - Haz clic en "Guardar Cambios" para confirmar o "Cancelar" para descartar
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Client Information */}
@@ -250,14 +354,14 @@ export default function ClientDetailPage() {
                 <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
                 {isEditing ? (
                   <Input
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    value={formData.phoneNumber}
+                    onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
                     className="mt-1"
                   />
-                ) : client.phone ? (
+                ) : client.phoneNumber ? (
                   <div className="flex items-center gap-2 mt-1">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-sm">{client.phone}</p>
+                    <p className="text-sm">{client.phoneNumber}</p>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">No phone provided</p>
@@ -276,6 +380,49 @@ export default function ClientDetailPage() {
                   <div className="flex items-start gap-2 mt-1">
                     <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                     <p className="text-sm">{client.address}</p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
+                {isEditing ? (
+                  <Input
+                    value={formData.city}
+                    onChange={(e) => handleInputChange("city", e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm mt-1">{client.city}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Provincia</label>
+                {isEditing ? (
+                  <Input
+                    value={formData.province}
+                    onChange={(e) => handleInputChange("province", e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm mt-1">{client.province}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Estado</label>
+                {isEditing ? (
+                  <select
+                    value={formData.isActive ? "active" : "inactive"}
+                    onChange={(e) => handleInputChange("isActive", e.target.value === "active")}
+                    className="mt-1 block w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  >
+                    <option value="active">Activo</option>
+                    <option value="inactive">Inactivo</option>
+                  </select>
+                ) : (
+                  <div className="mt-1">
+                    <Badge variant={client.isActive ? "default" : "secondary"}>
+                      {client.isActive ? "Activo" : "Inactivo"}
+                    </Badge>
                   </div>
                 )}
               </div>
@@ -340,6 +487,15 @@ export default function ClientDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <SuccessDialog
+        isOpen={successDialog.isOpen}
+        onClose={() => setSuccessDialog(prev => ({ ...prev, isOpen: false }))}
+        title={successDialog.title}
+        description={successDialog.description}
+        type={successDialog.type}
+      />
     </div>
   )
 }
