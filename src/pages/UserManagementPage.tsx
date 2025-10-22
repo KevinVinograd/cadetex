@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -20,24 +20,24 @@ export default function UserManagementPage() {
   const { role, logout } = useAuth()
   const { users, isLoading, error, createUser, updateUser, deleteUser, getUsersByOrganization } = useUsers()
   const { organizations } = useOrganizations()
-  
+
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  
+
   // Estados para crear usuario
   const [selectedOrg, setSelectedOrg] = useState<string>("")
   const [userName, setUserName] = useState("")
   const [userEmail, setUserEmail] = useState("")
   const [userPassword, setUserPassword] = useState("")
   const [userRole, setUserRole] = useState<string>("")
-  
+
   // Estados para actualizar contraseña
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState("")
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
-  
+
   // Estados para diálogos de confirmación
   const [successDialog, setSuccessDialog] = useState<{
     isOpen: boolean
@@ -50,7 +50,7 @@ export default function UserManagementPage() {
     description: '',
     type: 'success'
   })
-  
+
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean
     title: string
@@ -60,14 +60,20 @@ export default function UserManagementPage() {
     isOpen: false,
     title: '',
     description: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   })
 
+  useEffect(() => {
+    if (role !== "SUPERADMIN") {
+      navigate("/login")
+    }
+  }, [role, navigate])
+
+  // No renderizar si no tiene permisos
   if (role !== "SUPERADMIN") {
-    navigate("/login")
     return null
   }
-  
+
   const handleLogout = () => {
     logout()
     navigate("/login")
@@ -93,11 +99,11 @@ export default function UserManagementPage() {
 
   const handleCreateUser = async () => {
     if (!selectedOrg || !userName || !userEmail || !userPassword || !userRole) return
-    
+
     try {
       setIsCreating(true)
       setCreateError("")
-      
+
       const response = await fetch('http://localhost:8080/auth/register', {
         method: 'POST',
         headers: {
@@ -112,7 +118,7 @@ export default function UserManagementPage() {
           role: userRole
         })
       })
-      
+
       if (response.ok) {
         // Limpiar formulario y cerrar diálogo
         setUserName("")
@@ -155,11 +161,11 @@ export default function UserManagementPage() {
 
   const handleUpdatePassword = async () => {
     if (!selectedUser || !newPassword) return
-    
+
     try {
       setIsUpdatingPassword(true)
       setCreateError("")
-      
+
       const response = await fetch(`http://localhost:8080/users/${selectedUser}`, {
         method: 'PUT',
         headers: {
@@ -170,7 +176,7 @@ export default function UserManagementPage() {
           password: newPassword
         })
       })
-      
+
       if (response.ok) {
         setNewPassword("")
         setSelectedUser(null)
@@ -200,7 +206,7 @@ export default function UserManagementPage() {
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             }
           })
-          
+
           if (response.ok) {
             showSuccess("Usuario Eliminado", "El usuario ha sido eliminado exitosamente.")
             setTimeout(() => window.location.reload(), 1500)
@@ -340,7 +346,7 @@ export default function UserManagementPage() {
               Crea un nuevo usuario en el sistema.
             </DialogDescription>
           </DialogHeader>
-          
+
           {createError && (
             <Alert variant="destructive">
               <AlertDescription>{createError}</AlertDescription>
@@ -363,7 +369,7 @@ export default function UserManagementPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="userName">Nombre</Label>
               <Input
@@ -373,7 +379,7 @@ export default function UserManagementPage() {
                 placeholder="Juan Pérez"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="userEmail">Email</Label>
               <Input
@@ -384,7 +390,7 @@ export default function UserManagementPage() {
                 placeholder="usuario@empresa.com"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="userPassword">Contraseña</Label>
               <Input
@@ -395,7 +401,7 @@ export default function UserManagementPage() {
                 placeholder="••••••••"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="roleSelect">Rol</Label>
               <Select value={userRole} onValueChange={setUserRole}>
@@ -449,7 +455,7 @@ export default function UserManagementPage() {
               Ingresa la nueva contraseña para este usuario.
             </DialogDescription>
           </DialogHeader>
-          
+
           {createError && (
             <Alert variant="destructive">
               <AlertDescription>{createError}</AlertDescription>

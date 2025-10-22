@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -15,12 +15,12 @@ export default function SuperAdminPage() {
   const navigate = useNavigate()
   const { role } = useAuth()
   const { organizations, isLoading, error, createOrganization, deleteOrganization } = useOrganizations()
-  
+
   const [name, setName] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState("")
-  
-  
+
+
   // Estados para diálogos de confirmación
   const [successDialog, setSuccessDialog] = useState<{
     isOpen: boolean
@@ -33,7 +33,7 @@ export default function SuperAdminPage() {
     description: '',
     type: 'success'
   })
-  
+
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean
     title: string
@@ -43,19 +43,25 @@ export default function SuperAdminPage() {
     isOpen: false,
     title: '',
     description: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   })
 
   console.log("SuperAdminPage - role:", role)
   console.log("SuperAdminPage - organizations:", organizations)
   console.log("SuperAdminPage - isLoading:", isLoading)
 
+  useEffect(() => {
+    if (role !== "superadmin") {
+      console.log("SuperAdminPage - Redirecting to login, role:", role)
+      navigate("/login")
+    }
+  }, [role, navigate])
+
+  // No renderizar si no tiene permisos
   if (role !== "superadmin") {
-    console.log("SuperAdminPage - Redirecting to login, role:", role)
-    navigate("/login")
     return null
   }
-  
+
 
   const showSuccess = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
     setSuccessDialog({
@@ -78,7 +84,7 @@ export default function SuperAdminPage() {
 
   const handleCreate = async () => {
     if (!name.trim()) return
-    
+
     try {
       setIsCreating(true)
       setCreateError("")
@@ -140,7 +146,7 @@ export default function SuperAdminPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
+
           {createError && (
             <Alert variant="destructive">
               <AlertDescription>{createError}</AlertDescription>
@@ -148,9 +154,9 @@ export default function SuperAdminPage() {
           )}
 
           <div className="flex gap-3">
-            <Input 
-              placeholder="Organization name" 
-              value={name} 
+            <Input
+              placeholder="Organization name"
+              value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             />
@@ -191,8 +197,8 @@ export default function SuperAdminPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => navigate(`/organization-users/${org.id}`)}
                         className="text-blue-600 hover:text-blue-700"
@@ -200,8 +206,8 @@ export default function SuperAdminPage() {
                         <Users className="h-4 w-4 mr-2" />
                         Usuarios
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => handleDelete(org.id)}
                         className="text-destructive hover:text-destructive"

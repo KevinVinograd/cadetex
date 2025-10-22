@@ -1,22 +1,26 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { 
-  ArrowLeft, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import { useAuth } from "../hooks/use-auth"
+import { useClients } from "../hooks/use-clients"
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
+  MapPin,
   Save,
   X
 } from "lucide-react"
 
 export default function NewClientPage() {
   const navigate = useNavigate()
+  const { role, organizationId } = useAuth()
+  const { createClient } = useClients()
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -24,8 +28,7 @@ export default function NewClientPage() {
     phone: "",
     address: "",
     city: "",
-    contact: "",
-    status: "active",
+    province: "",
     notes: ""
   })
 
@@ -35,14 +38,27 @@ export default function NewClientPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!organizationId || !formData.name || !formData.address || !formData.city || !formData.province) {
+      alert("Por favor completa todos los campos obligatorios")
+      return
+    }
+
     setIsSaving(true)
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      console.log("New client created:", formData)
-      
+      const newClient = await createClient({
+        organizationId: organizationId,
+        name: formData.name,
+        address: formData.address,
+        city: formData.city,
+        province: formData.province,
+        phoneNumber: formData.phone || undefined,
+        email: formData.email || undefined,
+      })
+
+      console.log("New client created:", newClient)
+
       alert("Cliente creado exitosamente!")
       navigate("/dashboard/clients")
     } catch (error) {
@@ -55,6 +71,17 @@ export default function NewClientPage() {
 
   const handleCancel = () => {
     navigate("/dashboard/clients")
+  }
+
+  useEffect(() => {
+    if (role !== "orgadmin") {
+      navigate("/login")
+    }
+  }, [role, navigate])
+
+  // No renderizar si no tiene permisos
+  if (role !== "orgadmin") {
+    return null
   }
 
   return (
@@ -72,17 +99,17 @@ export default function NewClientPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleCancel}
             disabled={isSaving}
           >
             <X className="h-4 w-4 mr-2" />
             Cancelar
           </Button>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             onClick={handleSubmit}
             disabled={isSaving}
           >

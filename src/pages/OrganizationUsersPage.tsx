@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -21,17 +21,17 @@ export default function OrganizationUsersPage() {
   const { role } = useAuth()
   const { getUsersByOrganization } = useUsers()
   const { organizations } = useOrganizations()
-  
+
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  
+
   // Estados para crear usuario
   const [userName, setUserName] = useState("")
   const [userEmail, setUserEmail] = useState("")
   const [userPassword, setUserPassword] = useState("")
   const [userRole, setUserRole] = useState("")
-  
+
   // Estados para editar usuario
   const [editingUser, setEditingUser] = useState<any>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -40,7 +40,7 @@ export default function OrganizationUsersPage() {
   const [editRole, setEditRole] = useState("")
   const [editIsActive, setEditIsActive] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
-  
+
   // Estados para diálogos de confirmación
   const [successDialog, setSuccessDialog] = useState<{
     isOpen: boolean
@@ -53,7 +53,7 @@ export default function OrganizationUsersPage() {
     description: '',
     type: 'success'
   })
-  
+
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean
     title: string
@@ -63,14 +63,20 @@ export default function OrganizationUsersPage() {
     isOpen: false,
     title: '',
     description: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   })
 
   const organization = organizations.find(org => org.id === organizationId)
   const orgUsers = organizationId ? getUsersByOrganization(organizationId) : []
 
+  useEffect(() => {
+    if (role !== "superadmin") {
+      navigate("/login")
+    }
+  }, [role, navigate])
+
+  // No renderizar si no tiene permisos
   if (role !== "superadmin") {
-    navigate("/login")
     return null
   }
 
@@ -90,7 +96,7 @@ export default function OrganizationUsersPage() {
       </div>
     )
   }
-  
+
 
   const showSuccess = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
     setSuccessDialog({
@@ -131,11 +137,11 @@ export default function OrganizationUsersPage() {
 
   const handleCreateUser = async () => {
     if (!organizationId || !userName || !userEmail || !userPassword || !userRole) return
-    
+
     try {
       setIsCreating(true)
       setCreateError("")
-      
+
       const response = await fetch('http://localhost:8080/auth/register', {
         method: 'POST',
         headers: {
@@ -150,7 +156,7 @@ export default function OrganizationUsersPage() {
           role: userRole
         })
       })
-      
+
       if (response.ok) {
         setUserName("")
         setUserEmail("")
@@ -173,11 +179,11 @@ export default function OrganizationUsersPage() {
 
   const handleUpdateUser = async () => {
     if (!editingUser || !editName || !editEmail || !editRole) return
-    
+
     try {
       setIsUpdating(true)
       setCreateError("")
-      
+
       const response = await fetch(`http://localhost:8080/users/${editingUser.id}`, {
         method: 'PUT',
         headers: {
@@ -191,7 +197,7 @@ export default function OrganizationUsersPage() {
           isActive: editIsActive
         })
       })
-      
+
       if (response.ok) {
         setEditingUser(null)
         setIsEditDialogOpen(false)
@@ -221,7 +227,7 @@ export default function OrganizationUsersPage() {
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             }
           })
-          
+
           if (response.ok) {
             showSuccess("Usuario Eliminado", "El usuario ha sido eliminado exitosamente.")
             setTimeout(() => window.location.reload(), 1500)
@@ -258,7 +264,7 @@ export default function OrganizationUsersPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <CornerLogout />
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -361,7 +367,7 @@ export default function OrganizationUsersPage() {
               Crea un nuevo usuario para {organization.name}
             </DialogDescription>
           </DialogHeader>
-          
+
           {createError && (
             <Alert variant="destructive">
               <AlertDescription>{createError}</AlertDescription>
@@ -378,7 +384,7 @@ export default function OrganizationUsersPage() {
                 placeholder="Juan Pérez"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="userEmail">Email</Label>
               <Input
@@ -389,7 +395,7 @@ export default function OrganizationUsersPage() {
                 placeholder="usuario@empresa.com"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="userPassword">Contraseña</Label>
               <Input
@@ -400,7 +406,7 @@ export default function OrganizationUsersPage() {
                 placeholder="••••••••"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="roleSelect">Rol</Label>
               <Select value={userRole} onValueChange={setUserRole}>
@@ -453,7 +459,7 @@ export default function OrganizationUsersPage() {
               Modifica los datos del usuario
             </DialogDescription>
           </DialogHeader>
-          
+
           {createError && (
             <Alert variant="destructive">
               <AlertDescription>{createError}</AlertDescription>
@@ -470,7 +476,7 @@ export default function OrganizationUsersPage() {
                 placeholder="Juan Pérez"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="editEmail">Email</Label>
               <Input
@@ -481,7 +487,7 @@ export default function OrganizationUsersPage() {
                 placeholder="usuario@empresa.com"
               />
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="editRoleSelect">Rol</Label>
               <Select value={editRole} onValueChange={setEditRole}>

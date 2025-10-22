@@ -14,7 +14,7 @@ export interface Task {
   courierName?: string
   addressOverride?: string
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
-  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
+  priority: 'NORMAL' | 'URGENT'
   scheduledDate?: string
   notes?: string
   mbl?: string
@@ -29,13 +29,14 @@ export interface Task {
 }
 
 export interface CreateTaskRequest {
-  type: 'PICKUP' | 'DELIVERY' | 'RETURN' | 'INSPECTION'
+  organizationId: string
+  type: 'RETIRE' | 'DELIVER'
   referenceNumber?: string
   clientId?: string
   providerId?: string
   courierId?: string
   addressOverride?: string
-  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
+  priority: 'NORMAL' | 'URGENT'
   scheduledDate?: string
   notes?: string
   mbl?: string
@@ -47,7 +48,7 @@ export interface CreateTaskRequest {
 }
 
 export interface UpdateTaskRequest {
-  type?: 'PICKUP' | 'DELIVERY' | 'RETURN' | 'INSPECTION'
+  type?: 'RETIRE' | 'DELIVER'
   referenceNumber?: string
   clientId?: string
   providerId?: string
@@ -159,7 +160,7 @@ export function useTasks() {
     try {
       const formData = new FormData()
       formData.append('photo', photoFile)
-      
+
       const response = await apiService.uploadTaskPhoto(taskId, formData)
       return response.photoUrl
     } catch (err) {

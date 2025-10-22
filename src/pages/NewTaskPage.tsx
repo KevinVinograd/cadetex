@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -7,18 +7,41 @@ import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Checkbox } from "../components/ui/checkbox"
 import { Label } from "../components/ui/label"
-import { mockClients, mockCouriers, mockProviders } from "../lib/mock-data"
-import { 
-  ArrowLeft, 
-  Package, 
-  MapPin, 
+import { useAuth } from "../hooks/use-auth"
+import { useTasks } from "../hooks/use-tasks"
+import { useClients } from "../hooks/use-clients"
+import { useProviders } from "../hooks/use-providers"
+import { useCouriers } from "../hooks/use-couriers"
+import { SuccessDialog } from "../components/ui/success-dialog"
+import {
+  ArrowLeft,
+  Package,
+  MapPin,
   Save,
   X
 } from "lucide-react"
 
 export default function NewTaskPage() {
   const navigate = useNavigate()
+  const { role, organizationId } = useAuth()
+  const { createTask } = useTasks()
+  const { getClientsByOrganization } = useClients()
+  const { getProvidersByOrganization } = useProviders()
+  const { getCouriersByOrganization } = useCouriers()
   const [isSaving, setIsSaving] = useState(false)
+
+  // Estado para el diálogo de éxito
+  const [successDialog, setSuccessDialog] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    type: 'success'
+  })
   const [formData, setFormData] = useState({
     referenceBL: "",
     contactType: "client",
@@ -43,85 +66,103 @@ export default function NewTaskPage() {
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => {
       const updates: any = { [field]: value }
-      
+
       // Auto-set photoRequired based on task type
       if (field === "type") {
         updates.photoRequired = value === "entrega"
       }
-      
+
       return { ...prev, ...updates }
     })
   }
 
+  const showSuccess = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    setSuccessDialog({
+      isOpen: true,
+      title,
+      description,
+      type
+    })
+  }
+
   const handleClientChange = (clientId: string) => {
-    const client = mockClients.find(c => c.id === clientId)
+    const client = orgClients.find(c => c.id === clientId)
     if (client) {
       setFormData(prev => ({
         ...prev,
         contactId: clientId,
         address: client.address,
         city: client.city,
-        contact: client.contact || ""
+        contact: client.phoneNumber || ""
       }))
     }
   }
 
   const handleProviderChange = (providerId: string) => {
-    const provider = mockProviders.find(p => p.id === providerId)
+    const provider = orgProviders.find(p => p.id === providerId)
     if (provider) {
       setFormData(prev => ({
         ...prev,
         contactId: providerId,
         address: provider.address,
         city: provider.city,
-        contact: provider.contact || ""
+        contact: provider.phoneNumber || ""
       }))
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!organizationId || !formData.referenceBL || !formData.contactId) {
+      alert("Por favor completa todos los campos obligatorios")
+      return
+    }
+
     setIsSaving(true)
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Convert form data to backend format
-      const newTask = {
-        id: `task-${Date.now()}`,
-        referenceBL: formData.referenceBL,
-        clientId: formData.contactType === "client" ? formData.contactId : "",
-        providerId: formData.contactType === "provider" ? formData.contactId : "",
-        type: formData.type,
-        status: formData.status,
-        scheduledDate: formData.scheduledDate,
-        pickupAddress: formData.type === "retiro" ? formData.address : "",
-        pickupCity: formData.type === "retiro" ? formData.city : "",
-        pickupContact: formData.type === "retiro" ? formData.contact : "",
-        deliveryAddress: formData.type === "entrega" ? formData.address : "",
-        deliveryCity: formData.type === "entrega" ? formData.city : "",
-        deliveryContact: formData.type === "entrega" ? formData.contact : "",
-        courierId: formData.courierId === "unassigned" ? "" : formData.courierId,
-        notes: formData.notes,
-        priority: formData.priority,
-        photoRequired: formData.photoRequired,
-        mbl: formData.mbl,
-        hbl: formData.hbl,
-        freightCertificate: formData.freightCertificate,
-        foCertificate: formData.foCertificate,
-        bunkerCertificate: formData.bunkerCertificate,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+      // Convertir el tipo de tarea al formato del backend
+      const taskType = formData.type === "retiro" ? "RETIRE" : "DELIVER"
+      const taskPriority = formData.priority === "urgente" ? "URGENT" : "NORMAL"
+
+      console.log("Form data:", formData)
+      console.log("Converted taskType:", taskType)
+      console.log("Converted taskPriority:", taskPriority)
+
+      const taskData = {
+        organizationId: organizationId,
+        type: taskType as 'RETIRE' | 'DELIVER',
+        referenceNumber: formData.referenceBL,
+        clientId: formData.contactType === "client" ? formData.contactId : undefined,
+        providerId: formData.contactType === "provider" ? formData.contactId : undefined,
+        addressOverride: formData.address || undefined,
+        courierId: formData.courierId === "unassigned" ? undefined : formData.courierId,
+        priority: taskPriority as 'NORMAL' | 'URGENT',
+        scheduledDate: formData.scheduledDate || undefined,
+        notes: formData.notes || undefined,
+        mbl: formData.mbl || undefined,
+        hbl: formData.hbl || undefined,
+        freightCert: Boolean(formData.freightCertificate),
+        foCert: Boolean(formData.foCertificate),
+        bunkerCert: Boolean(formData.bunkerCertificate),
+        linkedTaskId: undefined
       }
-      
+
+      console.log("Sending task data:", JSON.stringify(taskData, null, 2))
+
+      const newTask = await createTask(taskData)
       console.log("New task created:", newTask)
-      
-      alert("Tarea creada exitosamente!")
-      navigate("/dashboard")
+
+      showSuccess("Tarea Creada", "La tarea ha sido creada exitosamente.")
+
+      // Navegar después de un breve delay para que se vea el mensaje
+      setTimeout(() => {
+        navigate("/dashboard/tasks")
+      }, 1500)
     } catch (error) {
       console.error('Error creating task:', error)
-      alert('Error creando la tarea. Intenta de nuevo.')
+      showSuccess("Error", "Error creando la tarea. Intenta de nuevo.", "error")
     } finally {
       setIsSaving(false)
     }
@@ -130,6 +171,22 @@ export default function NewTaskPage() {
   const handleCancel = () => {
     navigate("/dashboard")
   }
+
+  useEffect(() => {
+    if (role !== "orgadmin") {
+      navigate("/login")
+    }
+  }, [role, navigate])
+
+  // No renderizar si no tiene permisos
+  if (role !== "orgadmin") {
+    return null
+  }
+
+  // Obtener datos reales de la organización
+  const orgClients = organizationId ? getClientsByOrganization(organizationId) : []
+  const orgProviders = organizationId ? getProvidersByOrganization(organizationId) : []
+  const orgCouriers = organizationId ? getCouriersByOrganization(organizationId) : []
 
   return (
     <div className="space-y-8 p-8">
@@ -146,17 +203,17 @@ export default function NewTaskPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleCancel}
             disabled={isSaving}
           >
             <X className="h-4 w-4 mr-2" />
             Cancelar
           </Button>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             onClick={handleSubmit}
             disabled={isSaving}
           >
@@ -245,19 +302,19 @@ export default function NewTaskPage() {
 
                 {/* Photo Required Checkbox */}
                 <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/30">
-                  <Checkbox 
+                  <Checkbox
                     id="photoRequired"
                     checked={formData.photoRequired}
                     onCheckedChange={(checked) => handleInputChange("photoRequired", checked as boolean)}
                   />
-                  <Label 
-                    htmlFor="photoRequired" 
+                  <Label
+                    htmlFor="photoRequired"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                   >
                     Foto obligatoria al finalizar tarea
                     <span className="block text-xs text-muted-foreground font-normal mt-1">
-                      {formData.type === "entrega" 
-                        ? "Recomendado para entregas (marcado por defecto)" 
+                      {formData.type === "entrega"
+                        ? "Recomendado para entregas (marcado por defecto)"
                         : "Opcional para retiros (desmarcado por defecto)"}
                     </span>
                   </Label>
@@ -287,13 +344,13 @@ export default function NewTaskPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     {formData.contactType === "client" ? "Cliente" : "Proveedor"} *
                   </label>
-                  <Select 
-                    value={formData.contactId} 
+                  <Select
+                    value={formData.contactId}
                     onValueChange={(value) => {
                       if (formData.contactType === "client") {
                         handleClientChange(value)
@@ -307,13 +364,13 @@ export default function NewTaskPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {formData.contactType === "client" ? (
-                        mockClients.map((client) => (
+                        orgClients.map((client) => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.name}
                           </SelectItem>
                         ))
                       ) : (
-                        mockProviders.map((provider) => (
+                        orgProviders.map((provider) => (
                           <SelectItem key={provider.id} value={provider.id}>
                             {provider.name}
                           </SelectItem>
@@ -333,8 +390,8 @@ export default function NewTaskPage() {
                   {formData.type === "retiro" ? "Dirección de Recogida" : "Dirección de Entrega"}
                 </CardTitle>
                 <CardDescription>
-                  {formData.type === "retiro" 
-                    ? "Ubicación donde se recogerá la documentación" 
+                  {formData.type === "retiro"
+                    ? "Ubicación donde se recogerá la documentación"
                     : "Ubicación donde se entregará la documentación"
                   }
                 </CardDescription>
@@ -459,7 +516,7 @@ export default function NewTaskPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Sin asignar</SelectItem>
-                    {mockCouriers.map((courier) => (
+                    {orgCouriers.map((courier) => (
                       <SelectItem key={courier.id} value={courier.id}>
                         {courier.name} - {courier.phoneNumber}
                       </SelectItem>
@@ -486,19 +543,19 @@ export default function NewTaskPage() {
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {formData.type === "retiro" 
+                    {formData.type === "retiro"
                       ? "Se recogerá la documentación en la dirección especificada"
                       : "Se entregará la documentación en la dirección especificada"
                     }
                   </p>
                   {formData.contactType === "client" && formData.contactId && (
                     <p className="text-sm text-muted-foreground">
-                      Cliente: {mockClients.find(c => c.id === formData.contactId)?.name || "No seleccionado"}
+                      Cliente: {orgClients.find(c => c.id === formData.contactId)?.name || "No seleccionado"}
                     </p>
                   )}
                   {formData.contactType === "provider" && formData.contactId && (
                     <p className="text-sm text-muted-foreground">
-                      Proveedor: {mockProviders.find(p => p.id === formData.contactId)?.name || "No seleccionado"}
+                      Proveedor: {orgProviders.find(p => p.id === formData.contactId)?.name || "No seleccionado"}
                     </p>
                   )}
                 </div>
@@ -507,6 +564,15 @@ export default function NewTaskPage() {
           </div>
         </div>
       </form>
+
+      {/* Success Dialog */}
+      <SuccessDialog
+        isOpen={successDialog.isOpen}
+        onClose={() => setSuccessDialog(prev => ({ ...prev, isOpen: false }))}
+        title={successDialog.title}
+        description={successDialog.description}
+        type={successDialog.type}
+      />
     </div>
   )
 }

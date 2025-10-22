@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './components/theme-provider'
 import { Toaster } from './components/ui/toaster'
+import { AuthProvider } from './contexts/AuthContext'
 
 // Pages
 import LoginPage from './pages/LoginPage'
@@ -32,54 +33,56 @@ import OrganizationUsersPage from './pages/OrganizationUsersPage'
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <div className="min-h-screen bg-background">
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<LoginPage />} />
-          
-          {/* Dashboard routes */}
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardPage />} />
-            <Route path="clients" element={<ClientsPage />} />
-            <Route path="clients/:id" element={<ClientDetailPage />} />
-            <Route path="clients/new" element={<NewClientPage />} />
-            <Route path="couriers" element={<CouriersPage />} />
-            <Route path="couriers/:id" element={<CourierDetailPage />} />
-            <Route path="couriers/:id/edit" element={<EditCourierPage />} />
-            <Route path="couriers/new" element={<NewCourierPage />} />
-            <Route path="providers" element={<ProvidersPage />} />
-            <Route path="providers/:id" element={<ProviderDetailPage />} />
-            <Route path="providers/new" element={<NewProviderPage />} />
-            <Route path="reports" element={<ReportsPage />} />
-            <Route path="tasks" element={<TasksPage />} />
-            <Route path="tasks/new" element={<NewTaskPage />} />
-            <Route path="tasks/clone" element={<CloneTaskPage />} />
-            <Route path="tasks/:id/edit" element={<EditTaskPage />} />
-            <Route path="tasks/:id" element={<TaskDetailPage />} />
-          </Route>
-          
-              {/* Courier routes */}
-              <Route path="/courier" element={<DashboardLayout />}>
-                <Route index element={<CourierTasksPage />} />
-                <Route path="tasks/:id" element={<CourierTaskDetailPage />} />
-                <Route path="tasks/:id/complete" element={<CompleteTaskPage />} />
-              </Route>
-          
-          {/* Super admin routes */}
-          <Route path="/superadmin" element={<SuperAdminPage />} />
-          <Route path="/user-management" element={<UserManagementPage />} />
-          <Route path="/organization-users/:organizationId" element={<OrganizationUsersPage />} />
-          
-          {/* Organization admin routes */}
-          <Route path="/dashboard/clients" element={<ClientsPage />} />
-          <Route path="/dashboard/providers" element={<ProvidersPage />} />
-          <Route path="/dashboard/couriers" element={<CouriersPage />} />
-          
-          {/* Default redirect */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-        </Routes>
-        <Toaster />
-      </div>
+      <AuthProvider>
+        <div className="min-h-screen bg-background">
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<LoginPage />} />
+
+            {/* Dashboard routes */}
+            <Route path="/dashboard" element={<DashboardLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="clients" element={<ClientsPage />} />
+              <Route path="clients/:id" element={<ClientDetailPage />} />
+              <Route path="clients/new" element={<NewClientPage />} />
+              <Route path="couriers" element={<CouriersPage />} />
+              <Route path="couriers/:id" element={<CourierDetailPage />} />
+              <Route path="couriers/:id/edit" element={<EditCourierPage />} />
+              <Route path="couriers/new" element={<NewCourierPage />} />
+              <Route path="providers" element={<ProvidersPage />} />
+              <Route path="providers/:id" element={<ProviderDetailPage />} />
+              <Route path="providers/new" element={<NewProviderPage />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="tasks" element={<TasksPage />} />
+              <Route path="tasks/new" element={<NewTaskPage />} />
+              <Route path="tasks/clone" element={<CloneTaskPage />} />
+              <Route path="tasks/:id/edit" element={<EditTaskPage />} />
+              <Route path="tasks/:id" element={<TaskDetailPage />} />
+            </Route>
+
+            {/* Courier routes */}
+            <Route path="/courier" element={<DashboardLayout />}>
+              <Route index element={<CourierTasksPage />} />
+              <Route path="tasks/:id" element={<CourierTaskDetailPage />} />
+              <Route path="tasks/:id/complete" element={<CompleteTaskPage />} />
+            </Route>
+
+            {/* Super admin routes */}
+            <Route path="/superadmin" element={<SuperAdminPage />} />
+            <Route path="/user-management" element={<UserManagementPage />} />
+            <Route path="/organization-users/:organizationId" element={<OrganizationUsersPage />} />
+
+            {/* Organization admin routes */}
+            <Route path="/dashboard/clients" element={<ClientsPage />} />
+            <Route path="/dashboard/providers" element={<ProvidersPage />} />
+            <Route path="/dashboard/couriers" element={<CouriersPage />} />
+
+            {/* Default redirect */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+          </Routes>
+          <Toaster />
+        </div>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

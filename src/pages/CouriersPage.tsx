@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -17,12 +17,12 @@ export default function CouriersPage() {
   const navigate = useNavigate()
   const { role, organizationId } = useAuth()
   const { couriers, isLoading, error, deleteCourier, getCouriersByOrganization } = useCouriers()
-  
+
   const [searchQuery, setSearchQuery] = useState("")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [courierToDelete, setCourierToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  
+
   // Estados para diálogos
   const [successDialog, setSuccessDialog] = useState<{
     isOpen: boolean
@@ -36,20 +36,26 @@ export default function CouriersPage() {
     type: 'success'
   })
 
+  useEffect(() => {
+    if (role !== "orgadmin") {
+      navigate("/login")
+    }
+  }, [role, navigate])
+
+  // No renderizar si no tiene permisos
   if (role !== "orgadmin") {
-    navigate("/login")
     return null
   }
 
   const orgCouriers = organizationId ? getCouriersByOrganization(organizationId) : []
-  
+
   const filteredCouriers = orgCouriers.filter((courier) => {
-    const matchesSearch = 
+    const matchesSearch =
       courier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       courier.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       courier.phoneNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       courier.vehicleType?.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     return matchesSearch
   })
 
@@ -69,7 +75,7 @@ export default function CouriersPage() {
 
   const confirmDelete = async () => {
     if (!courierToDelete) return
-    
+
     try {
       setIsDeleting(true)
       await deleteCourier(courierToDelete)
@@ -98,7 +104,7 @@ export default function CouriersPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <CornerLogout />
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

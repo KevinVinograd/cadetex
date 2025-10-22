@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -11,30 +11,19 @@ import { useClients } from "../hooks/use-clients"
 import { Alert, AlertDescription } from "../components/ui/alert"
 import { Loader2, Plus, Search, Eye, Trash2, ArrowLeft, AlertCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
-import { Label } from "../components/ui/label"
 import { SuccessDialog } from "../components/ui/success-dialog"
 
 export default function ClientsPage() {
   const navigate = useNavigate()
   const { role, organizationId } = useAuth()
   const { isLoading, error, createClient, deleteClient, getClientsByOrganization } = useClients()
-  
+
   const [searchQuery, setSearchQuery] = useState("")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [clientToDelete, setClientToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  
-  // Estados para creación de cliente
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [createError, setCreateError] = useState("")
-  const [clientName, setClientName] = useState("")
-  const [clientAddress, setClientAddress] = useState("")
-  const [clientCity, setClientCity] = useState("")
-  const [clientProvince, setClientProvince] = useState("")
-  const [clientPhone, setClientPhone] = useState("")
-  const [clientEmail, setClientEmail] = useState("")
-  
+
+
   // Estados para diálogos
   const [successDialog, setSuccessDialog] = useState<{
     isOpen: boolean
@@ -47,7 +36,7 @@ export default function ClientsPage() {
     description: '',
     type: 'success'
   })
-  
+
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean
     title: string
@@ -57,68 +46,32 @@ export default function ClientsPage() {
     isOpen: false,
     title: '',
     description: '',
-    onConfirm: () => {}
+    onConfirm: () => { }
   })
 
+  useEffect(() => {
+    if (role !== "orgadmin") {
+      navigate("/login")
+    }
+  }, [role, navigate])
+
+  // No renderizar si no tiene permisos
   if (role !== "orgadmin") {
-    navigate("/login")
     return null
   }
 
   const orgClients = organizationId ? getClientsByOrganization(organizationId) : []
-  
+
   const filteredClients = orgClients.filter((client) => {
-    const matchesSearch = 
+    const matchesSearch =
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.email?.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     return matchesSearch
   })
 
-  const handleCreateClient = async () => {
-    if (!organizationId || !clientName || !clientAddress || !clientCity || !clientProvince) {
-      setCreateError("Por favor completa todos los campos obligatorios")
-      return
-    }
-    
-    try {
-      setIsCreating(true)
-      setCreateError("")
-      
-      const newClient = await createClient({
-        organizationId: organizationId,
-        name: clientName,
-        address: clientAddress,
-        city: clientCity,
-        province: clientProvince,
-        phoneNumber: clientPhone || undefined,
-        email: clientEmail || undefined,
-      })
-      
-      // Mostrar diálogo de éxito
-      setSuccessDialog({
-        isOpen: true,
-        title: "Cliente creado exitosamente",
-        description: `El cliente "${newClient.name}" ha sido creado correctamente.`,
-        type: "success"
-      })
-      
-      // Limpiar formulario
-      setClientName("")
-      setClientAddress("")
-      setClientCity("")
-      setClientProvince("")
-      setClientPhone("")
-      setClientEmail("")
-      setIsCreateDialogOpen(false)
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Error al crear el cliente")
-    } finally {
-      setIsCreating(false)
-    }
-  }
 
   const handleDeleteClick = (clientId: string, clientName: string) => {
     setClientToDelete(clientId)
@@ -132,18 +85,18 @@ export default function ClientsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!clientToDelete) return
-    
+
     try {
       setIsDeleting(true)
       await deleteClient(clientToDelete)
-      
+
       setSuccessDialog({
         isOpen: true,
         title: "Cliente eliminado exitosamente",
         description: "El cliente ha sido eliminado correctamente.",
         type: "success"
       })
-      
+
       setClientToDelete(null)
       setIsDeleteDialogOpen(false)
     } catch (err) {
@@ -170,7 +123,7 @@ export default function ClientsPage() {
 
   const confirmDelete = async () => {
     if (!clientToDelete) return
-    
+
     try {
       setIsDeleting(true)
       await deleteClient(clientToDelete)
@@ -199,7 +152,7 @@ export default function ClientsPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <CornerLogout />
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -214,10 +167,12 @@ export default function ClientsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Cliente
-        </Button>
+        <Link to="/dashboard/clients/new">
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Cliente
+          </Button>
+        </Link>
       </div>
 
       <Card>
@@ -341,124 +296,6 @@ export default function ClientsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Client Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Crear Nuevo Cliente</DialogTitle>
-            <DialogDescription>
-              Completa la información del cliente. Los campos marcados con * son obligatorios.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Nombre *
-              </Label>
-              <Input
-                id="name"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                className="col-span-3"
-                placeholder="Nombre del cliente"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
-                Dirección *
-              </Label>
-              <Input
-                id="address"
-                value={clientAddress}
-                onChange={(e) => setClientAddress(e.target.value)}
-                className="col-span-3"
-                placeholder="Dirección completa"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="city" className="text-right">
-                Ciudad *
-              </Label>
-              <Input
-                id="city"
-                value={clientCity}
-                onChange={(e) => setClientCity(e.target.value)}
-                className="col-span-3"
-                placeholder="Ciudad"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="province" className="text-right">
-                Provincia *
-              </Label>
-              <Input
-                id="province"
-                value={clientProvince}
-                onChange={(e) => setClientProvince(e.target.value)}
-                className="col-span-3"
-                placeholder="Provincia"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">
-                Teléfono
-              </Label>
-              <Input
-                id="phone"
-                value={clientPhone}
-                onChange={(e) => setClientPhone(e.target.value)}
-                className="col-span-3"
-                placeholder="Número de teléfono"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={clientEmail}
-                onChange={(e) => setClientEmail(e.target.value)}
-                className="col-span-3"
-                placeholder="Correo electrónico"
-              />
-            </div>
-            {createError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{createError}</AlertDescription>
-              </Alert>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsCreateDialogOpen(false)
-                setCreateError("")
-                setClientName("")
-                setClientAddress("")
-                setClientCity("")
-                setClientProvince("")
-                setClientPhone("")
-                setClientEmail("")
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleCreateClient}
-              disabled={isCreating}
-            >
-              {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isCreating ? "Creando..." : "Crear Cliente"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Success Dialog */}
       <SuccessDialog

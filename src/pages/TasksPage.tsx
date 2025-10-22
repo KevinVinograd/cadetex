@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -18,11 +18,17 @@ export default function TasksPage() {
   const navigate = useNavigate()
   const { role, isLoading: authLoading } = useAuth()
   const { tasks, isLoading, error, deleteTask } = useTasks()
-  
+
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all")
   const [typeFilter, setTypeFilter] = useState<TaskType | "all">("all")
-  
+
+  useEffect(() => {
+    if (role !== "orgadmin") {
+      navigate("/login")
+    }
+  }, [role, navigate])
+
   // Show loading while auth is being determined
   if (authLoading || isLoading) {
     return (
@@ -34,24 +40,23 @@ export default function TasksPage() {
       </div>
     )
   }
-  
-  // Redirect if not orgadmin
+
+  // No renderizar si no tiene permisos
   if (role !== "orgadmin") {
-    if (typeof window !== "undefined") navigate("/login")
     return null
   }
 
   // Filter tasks based on search and filters
   const filteredTasks = tasks.filter((task) => {
-    const matchesSearch = 
+    const matchesSearch =
       task.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.providerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.courierName?.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     const matchesStatus = statusFilter === "all" || task.status === statusFilter
     const matchesType = typeFilter === "all" || task.type === typeFilter
-    
+
     return matchesSearch && matchesStatus && matchesType
   })
 
@@ -73,7 +78,7 @@ export default function TasksPage() {
     if (!confirm("¿Estás seguro de que quieres eliminar esta tarea?")) {
       return
     }
-    
+
     try {
       await deleteTask(taskId)
     } catch (error) {
@@ -141,7 +146,7 @@ export default function TasksPage() {
             <p className="text-xs text-muted-foreground mt-1">All tasks</p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-2 hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
@@ -154,7 +159,7 @@ export default function TasksPage() {
             <p className="text-xs text-muted-foreground mt-1">Awaiting action</p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-2 hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
@@ -167,7 +172,7 @@ export default function TasksPage() {
             <p className="text-xs text-muted-foreground mt-1">Currently active</p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-2 hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed</CardTitle>
@@ -262,22 +267,22 @@ export default function TasksPage() {
                         <TableCell>{task.providerName || "-"}</TableCell>
                         <TableCell>{task.courierName || "-"}</TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
                             variant={
                               task.status === "COMPLETED" ? "default" :
-                              task.status === "IN_PROGRESS" ? "secondary" :
-                              task.status === "PENDING" ? "outline" : "destructive"
+                                task.status === "IN_PROGRESS" ? "secondary" :
+                                  task.status === "PENDING" ? "outline" : "destructive"
                             }
                           >
                             {task.status.replace("_", " ")}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
                             variant={
                               task.priority === "URGENT" ? "destructive" :
-                              task.priority === "HIGH" ? "default" :
-                              task.priority === "NORMAL" ? "secondary" : "outline"
+                                task.priority === "HIGH" ? "default" :
+                                  task.priority === "NORMAL" ? "secondary" : "outline"
                             }
                           >
                             {task.priority}

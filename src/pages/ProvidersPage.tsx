@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -17,12 +17,12 @@ export default function ProvidersPage() {
   const navigate = useNavigate()
   const { role, organizationId } = useAuth()
   const { providers, isLoading, error, deleteProvider, getProvidersByOrganization } = useProviders()
-  
+
   const [searchQuery, setSearchQuery] = useState("")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [providerToDelete, setProviderToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  
+
   // Estados para diálogos
   const [successDialog, setSuccessDialog] = useState<{
     isOpen: boolean
@@ -36,20 +36,26 @@ export default function ProvidersPage() {
     type: 'success'
   })
 
+  useEffect(() => {
+    if (role !== "orgadmin") {
+      navigate("/login")
+    }
+  }, [role, navigate])
+
+  // No renderizar si no tiene permisos
   if (role !== "orgadmin") {
-    navigate("/login")
     return null
   }
 
   const orgProviders = organizationId ? getProvidersByOrganization(organizationId) : []
-  
+
   const filteredProviders = orgProviders.filter((provider) => {
-    const matchesSearch = 
+    const matchesSearch =
       provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       provider.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
       provider.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       provider.email?.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     return matchesSearch
   })
 
@@ -69,7 +75,7 @@ export default function ProvidersPage() {
 
   const confirmDelete = async () => {
     if (!providerToDelete) return
-    
+
     try {
       setIsDeleting(true)
       await deleteProvider(providerToDelete)
@@ -98,7 +104,7 @@ export default function ProvidersPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <CornerLogout />
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
