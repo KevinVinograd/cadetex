@@ -24,6 +24,7 @@ export interface Task {
   bunkerCert: boolean
   linkedTaskId?: string
   receiptPhotoUrl?: string
+  photoRequired: boolean
   createdAt: string
   updatedAt: string
 }
@@ -145,7 +146,7 @@ export function useTasks() {
     }
   }
 
-  const updateTaskStatus = async (taskId: string, status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'): Promise<Task> => {
+  const updateTaskStatus = async (taskId: string, status: 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'): Promise<Task> => {
     try {
       const updatedTask = await apiService.updateTaskStatus(taskId, status)
       setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task))

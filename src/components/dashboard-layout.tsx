@@ -31,11 +31,11 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
 
   // Different navigation items based on user role
   const getNavItems = () => {
-    if (role === "COURIER") {
+    if (role === "courier") {
       return [
         { href: "/courier", label: "My Tasks", icon: Package },
       ]
-    } else if (role === "SUPERADMIN") {
+    } else if (role === "superadmin") {
       return [
         { href: "/superadmin", label: "Organizaciones", icon: Building2 },
         { href: "/user-management", label: "Usuarios", icon: Users },
@@ -56,20 +56,20 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-          {/* Mobile menu button */}
-          <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border">
-            <div className="flex items-center justify-between p-4">
-              <h1 className="text-lg font-semibold text-foreground">
-                {role === "courier" ? "Courier Portal" : "Courier Management"}
-              </h1>
-              <div className="flex items-center gap-2">
-                <ThemeToggle />
-                <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-                  {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </Button>
-              </div>
-            </div>
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border">
+        <div className="flex items-center justify-between p-4">
+          <h1 className="text-lg font-semibold text-foreground">
+            {role === "courier" ? "Courier Portal" : "Courier Management"}
+          </h1>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+              {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
           </div>
+        </div>
+      </div>
 
       {/* Sidebar */}
       <aside
@@ -80,16 +80,16 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
         )}
       >
         <div className="flex flex-col h-full">
-              <div className="p-6 border-b border-sidebar-border">
-                <div className="flex items-center justify-between">
-                  <h1 className="text-xl font-bold text-sidebar-foreground text-balance">
-                    {role === "COURIER" ? "Courier Portal" : 
-                     role === "SUPERADMIN" ? "Super Admin" : 
-                     "Courier Management"}
-                  </h1>
-                  <ThemeToggle />
-                </div>
-              </div>
+          <div className="p-6 border-b border-sidebar-border">
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold text-sidebar-foreground text-balance">
+                {role === "courier" ? "Courier Portal" :
+                  role === "superadmin" ? "Super Admin" :
+                    "Courier Management"}
+              </h1>
+              <ThemeToggle />
+            </div>
+          </div>
 
           <nav className="flex-1 p-4 space-y-2">
             {navItems.map((item) => {

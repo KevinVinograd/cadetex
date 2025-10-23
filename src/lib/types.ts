@@ -60,9 +60,9 @@ export interface Provider {
 
 export interface Courier {
   id: string
+  userId?: string // Reference to users table
   name: string
   phoneNumber: string
-  email?: string
   address?: string
   vehicleType: string
   activeTasks: number
