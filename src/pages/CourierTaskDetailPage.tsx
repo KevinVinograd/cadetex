@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Textarea } from "../components/ui/textarea"
 import { Label } from "../components/ui/label"
 import { Input } from "../components/ui/input"
-import { mockTasks, mockClients } from "../lib/mock-data"
+import { useTasks } from "../hooks/use-tasks"
 import { 
   ArrowLeft, 
   Package, 
@@ -26,11 +26,19 @@ import {
 export default function CourierTaskDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { getTaskById, currentTask, isLoadingTask, taskError } = useTasks()
   const [notes, setNotes] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
   
   // Find the task by ID
-  const task = mockTasks.find(t => t.id === id)
+  const task = currentTask
+
+  // Load task when ID changes
+  useEffect(() => {
+    if (id && (!currentTask || currentTask.id !== id)) {
+      getTaskById(id)
+    }
+  }, [id, getTaskById, currentTask])
   
   // Get the relevant address based on task type
   const getTaskAddress = () => {
@@ -47,6 +55,36 @@ export default function CourierTaskDetailPage() {
     return task?.type === "retiro" ? task.pickupCity : task?.deliveryCity
   }
   
+  // Show loading state
+  if (isLoadingTask) {
+    return (
+      <div className="space-y-8 p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <h1 className="text-2xl font-semibold">Loading Task...</h1>
+          <p className="text-muted-foreground mb-4">Please wait while we load the task details.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (taskError) {
+    return (
+      <div className="space-y-8 p-8">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-semibold">Error Loading Task</h1>
+          <p className="text-muted-foreground mb-4">{taskError}</p>
+          <Button onClick={() => navigate("/courier")}>
+            Back to My Tasks
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show not found state
   if (!task) {
     return (
       <div className="space-y-8 p-8">
@@ -62,7 +100,8 @@ export default function CourierTaskDetailPage() {
     )
   }
 
-  const client = mockClients.find(c => c.id === task.clientId)
+  // TODO: Load client details
+  const client = null
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -164,7 +203,7 @@ export default function CourierTaskDetailPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Fecha Programada</label>
-                  <p className="text-sm">{new Date(task.scheduledDate).toLocaleDateString()}</p>
+                  <p className="text-sm">{task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : "No programada"}</p>
                 </div>
               </div>
             </CardContent>
@@ -320,7 +359,7 @@ export default function CourierTaskDetailPage() {
               {isTaskCompleted && (
                 <div className="text-center py-4">
                   <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-green-600">Tarea Completada</p>
+                  <p className="text-sm font-medium text-green-600">Tarea Finalizada</p>
                   <p className="text-xs text-muted-foreground">¡Excelente trabajo!</p>
                 </div>
               )}
@@ -370,7 +409,7 @@ export default function CourierTaskDetailPage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Scheduled:</span>
-                <span className="font-medium">{new Date(task.scheduledDate).toLocaleDateString()}</span>
+                <span className="font-medium">{task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : "No programada"}</span>
               </div>
             </CardContent>
           </Card>

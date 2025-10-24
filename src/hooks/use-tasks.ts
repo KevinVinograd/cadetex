@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { apiService } from '../lib/api'
 
 export interface Task {
   id: string
   organizationId: string
-  type: 'PICKUP' | 'DELIVERY' | 'RETURN' | 'INSPECTION'
+  type: 'RETIRE' | 'DELIVER'
   referenceNumber?: string
   clientId?: string
   clientName?: string
@@ -13,7 +13,7 @@ export interface Task {
   courierId?: string
   courierName?: string
   addressOverride?: string
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  status: 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
   priority: 'NORMAL' | 'URGENT'
   scheduledDate?: string
   notes?: string
@@ -55,7 +55,7 @@ export interface UpdateTaskRequest {
   providerId?: string
   courierId?: string
   addressOverride?: string
-  status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  status?: 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
   priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
   scheduledDate?: string
   notes?: string
@@ -72,8 +72,11 @@ export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentTask, setCurrentTask] = useState<Task | null>(null)
+  const [isLoadingTask, setIsLoadingTask] = useState(false)
+  const [taskError, setTaskError] = useState<string | null>(null)
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -85,7 +88,7 @@ export function useTasks() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   const createTask = async (taskData: CreateTaskRequest): Promise<Task> => {
     try {
@@ -100,8 +103,14 @@ export function useTasks() {
 
   const updateTask = async (taskId: string, taskData: UpdateTaskRequest): Promise<Task> => {
     try {
+      console.log('Hook updateTask - ID:', taskId, 'Data:', taskData)
       const updatedTask = await apiService.updateTask(taskId, taskData)
-      setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task))
+      console.log('Hook updateTask - Respuesta del API:', updatedTask)
+      setTasks(prev => {
+        const newTasks = prev.map(task => task.id === taskId ? updatedTask : task)
+        console.log('Hook updateTask - Estado actualizado:', newTasks.find(t => t.id === taskId))
+        return newTasks
+      })
       return updatedTask
     } catch (err) {
       console.error('Error updating task:', err)
@@ -119,14 +128,22 @@ export function useTasks() {
     }
   }
 
-  const getTaskById = async (taskId: string): Promise<Task> => {
+  const getTaskById = useCallback(async (taskId: string): Promise<Task | null> => {
     try {
-      return await apiService.getTask(taskId)
+      setIsLoadingTask(true)
+      setTaskError(null)
+      const task = await apiService.getTask(taskId)
+      setCurrentTask(task)
+      return task
     } catch (err) {
       console.error('Error fetching task:', err)
-      throw new Error('Error al cargar la tarea')
+      setTaskError('Error al cargar la tarea')
+      setCurrentTask(null)
+      return null
+    } finally {
+      setIsLoadingTask(false)
     }
-  }
+  }, [])
 
   const getTasksByOrganization = async (organizationId: string): Promise<Task[]> => {
     try {
@@ -178,6 +195,9 @@ export function useTasks() {
     tasks,
     isLoading,
     error,
+    currentTask,
+    isLoadingTask,
+    taskError,
     fetchTasks,
     createTask,
     updateTask,

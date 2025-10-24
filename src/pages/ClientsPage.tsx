@@ -9,19 +9,20 @@ import { CornerLogout } from "../components/ui/corner-logout"
 import { useAuth } from "../hooks/use-auth"
 import { useClients } from "../hooks/use-clients"
 import { Alert, AlertDescription } from "../components/ui/alert"
-import { Loader2, Plus, Search, Eye, Trash2, ArrowLeft, AlertCircle } from "lucide-react"
+import { Loader2, Plus, Search, Eye, Trash2, ArrowLeft } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
 
 export default function ClientsPage() {
   const navigate = useNavigate()
   const { role, organizationId } = useAuth()
-  const { isLoading, error, createClient, deleteClient, getClientsByOrganization } = useClients()
+  const { isLoading, error, deleteClient, getClientsByOrganization } = useClients()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [clientToDelete, setClientToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
 
 
   // Estados para diálogos
@@ -119,6 +120,7 @@ export default function ClientsPage() {
       type
     })
   }
+
 
 
   const confirmDelete = async () => {
@@ -257,6 +259,7 @@ export default function ClientsPage() {
           </Table>
         </CardContent>
       </Card>
+
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

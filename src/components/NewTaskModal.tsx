@@ -5,7 +5,6 @@ import { Input } from "./ui/input"
 import { Textarea } from "./ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
-import { mockClients, mockCouriers, mockProviders } from "../lib/mock-data"
 import { 
   Package, 
   MapPin, 
@@ -222,7 +221,7 @@ export default function NewTaskModal({ isOpen, onClose, onSuccess }: NewTaskModa
                         <SelectContent>
                           <SelectItem value="en_preparacion">En Preparación</SelectItem>
                           <SelectItem value="pendiente_confirmar">Pendiente Confirmar</SelectItem>
-                          <SelectItem value="confirmada_tomar">Confirmada Tomar</SelectItem>
+                          <SelectItem value="confirmada_tomar">Confirmada</SelectItem>
                           <SelectItem value="finalizada">Finalizada</SelectItem>
                           <SelectItem value="cancelada">Cancelada</SelectItem>
                         </SelectContent>

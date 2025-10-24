@@ -6,7 +6,6 @@ import { Label } from '../components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { PhotoUpload } from '../components/photo-upload'
-import { mockTasks } from '../lib/mock-data'
 import { ArrowLeft, Package, MapPin, Calendar, User, CheckCircle2, AlertCircle, Camera } from 'lucide-react'
 
 export default function CompleteTaskPage() {
@@ -17,8 +16,8 @@ export default function CompleteTaskPage() {
   const [notes, setNotes] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Find the task by ID
-  const task = mockTasks.find(t => t.id === id)
+  // Find the task by ID (TODO: implement real task loading)
+  const task = null
 
   useEffect(() => {
     if (task?.notes) {
@@ -52,7 +51,7 @@ export default function CompleteTaskPage() {
     const labels = {
       en_preparacion: "En Preparación",
       pendiente_confirmar: "Pendiente Confirmar",
-      confirmada_tomar: "Confirmada Tomar",
+      confirmada_tomar: "Confirmada",
       finalizada: "Finalizada",
       cancelada: "Cancelada",
     }
@@ -196,7 +195,7 @@ export default function CompleteTaskPage() {
                   <p className="font-medium">Esta tarea no puede ser completada en este momento</p>
                 </div>
                 <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
-                  Solo las tareas con estado "Confirmada Tomar" o "En Progreso" pueden ser finalizadas.
+                  Solo las tareas con estado "Confirmada" o "En Progreso" pueden ser finalizadas.
                 </p>
               </CardContent>
             </Card>

@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { mockClients, mockCouriers, mockProviders } from "../lib/mock-data"
 import { 
   ArrowLeft, 
   Package, 
@@ -257,7 +256,7 @@ export default function CloneTaskPage() {
                       <SelectContent>
                         <SelectItem value="en_preparacion">En Preparación</SelectItem>
                         <SelectItem value="pendiente_confirmar">Pendiente Confirmar</SelectItem>
-                        <SelectItem value="confirmada_tomar">Confirmada Tomar</SelectItem>
+                        <SelectItem value="confirmada_tomar">Confirmada</SelectItem>
                         <SelectItem value="finalizada">Finalizada</SelectItem>
                         <SelectItem value="cancelada">Cancelada</SelectItem>
                       </SelectContent>

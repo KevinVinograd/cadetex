@@ -33,7 +33,7 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
   const getNavItems = () => {
     if (role === "courier") {
       return [
-        { href: "/courier", label: "My Tasks", icon: Package },
+        { href: "/courier", label: "Mis Tareas", icon: Package },
       ]
     } else if (role === "superadmin") {
       return [
@@ -43,11 +43,11 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
     } else {
       // For orgadmin
       return [
-        { href: "/dashboard", label: "Tasks", icon: LayoutDashboard },
-        { href: "/dashboard/clients", label: "Clients", icon: Users },
-        { href: "/dashboard/couriers", label: "Couriers", icon: Truck },
-        { href: "/dashboard/providers", label: "Providers", icon: Building2 },
-        { href: "/dashboard/reports", label: "Reports", icon: FileText },
+        { href: "/dashboard", label: "Tareas", icon: LayoutDashboard },
+        { href: "/dashboard/clients", label: "Clientes", icon: Users },
+        { href: "/dashboard/couriers", label: "Cadetes", icon: Truck },
+        { href: "/dashboard/providers", label: "Proveedores", icon: Building2 },
+        { href: "/dashboard/reports", label: "Reportes", icon: FileText },
       ]
     }
   }
@@ -60,7 +60,7 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border">
         <div className="flex items-center justify-between p-4">
           <h1 className="text-lg font-semibold text-foreground">
-            {role === "courier" ? "Courier Portal" : "Courier Management"}
+            {role === "courier" ? "Portal de Cadete" : "Gestión de Cadetes"}
           </h1>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -123,7 +123,7 @@ export function DashboardLayout({ children: _children }: DashboardLayoutProps) {
             </div>
             <Button variant="outline" size="sm" className="w-full bg-transparent" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
-              Logout
+              Cerrar Sesión
             </Button>
           </div>
         </div>

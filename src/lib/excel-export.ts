@@ -58,7 +58,7 @@ export function exportTasksToExcel(tasks: Task[], filename: string = 'tareas-com
   ws['!cols'] = colWidths
   
   // Agregar la hoja al libro
-  XLSX.utils.book_append_sheet(wb, ws, 'Tareas Completadas')
+  XLSX.utils.book_append_sheet(wb, ws, 'Tareas Finalizadas')
   
   // Descargar el archivo
   XLSX.writeFile(wb, filename)

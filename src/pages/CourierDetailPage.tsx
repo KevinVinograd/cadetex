@@ -6,7 +6,6 @@ import { Badge } from "../components/ui/badge"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { mockCouriers, mockTasks } from "../lib/mock-data"
 import { 
   ArrowLeft, 
   User, 
@@ -52,8 +51,8 @@ export default function CourierDetailPage() {
     }
   }, [courier])
   
-  // Get tasks assigned to this courier
-  const courierTasks = mockTasks.filter(task => task.courierId === id)
+  // Get tasks assigned to this courier (TODO: implement real task loading)
+  const courierTasks: any[] = []
 
   if (!courier) {
     return (
@@ -90,7 +89,7 @@ export default function CourierDetailPage() {
     const labels = {
       en_preparacion: "En Preparación",
       pendiente_confirmar: "Pendiente Confirmar",
-      confirmada_tomar: "Confirmada Tomar",
+      confirmada_tomar: "Confirmada",
       finalizada: "Finalizada",
       cancelada: "Cancelada",
     }

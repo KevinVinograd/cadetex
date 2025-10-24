@@ -1,0 +1,56 @@
+/* Task Badge Styles - High specificity to override Tailwind */
+.task-badge-pending {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+  border-color: #fbbf24 !important;
+  border: 1px solid #fbbf24 !important;
+}
+
+.task-badge-in-progress {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  border-color: #3b82f6 !important;
+  border: 1px solid #3b82f6 !important;
+}
+
+.task-badge-completed {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+  border-color: #22c55e !important;
+  border: 1px solid #22c55e !important;
+}
+
+.task-badge-cancelled {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #ef4444 !important;
+  border: 1px solid #ef4444 !important;
+}
+
+.task-badge-urgent {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #ef4444 !important;
+  border: 1px solid #ef4444 !important;
+}
+
+.task-badge-high {
+  background-color: #fed7aa !important;
+  color: #c2410c !important;
+  border-color: #f97316 !important;
+  border: 1px solid #f97316 !important;
+}
+
+.task-badge-normal {
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  border-color: #3b82f6 !important;
+  border: 1px solid #3b82f6 !important;
+}
+
+.task-badge-low {
+  background-color: #f3f4f6 !important;
+  color: #374151 !important;
+  border-color: #d1d5db !important;
+  border: 1px solid #d1d5db !important;
+}

@@ -1,20 +1,22 @@
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { useAuth } from "../hooks/use-auth"
 import { useClients } from "../hooks/use-clients"
-import {
-  ArrowLeft,
-  User,
-  Mail,
-  Phone,
-  MapPin,
+import { SuccessDialog } from "../components/ui/success-dialog"
+import { 
+  ArrowLeft, 
+  Building2, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Plus,
   Save,
-  X
+  X,
+  AlertCircle
 } from "lucide-react"
 
 export default function NewClientPage() {
@@ -22,270 +24,254 @@ export default function NewClientPage() {
   const { role, organizationId } = useAuth()
   const { createClient } = useClients()
   const [isSaving, setIsSaving] = useState(false)
+  const [createError, setCreateError] = useState("")
+  
+  // Estado para el diálogo de éxito
+  const [successDialog, setSuccessDialog] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    type: 'success'
+  })
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
+    phoneNumber: "",
     address: "",
     city: "",
     province: "",
-    notes: ""
+    isActive: true
   })
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const handleCreateClient = async () => {
     if (!organizationId || !formData.name || !formData.address || !formData.city || !formData.province) {
-      alert("Por favor completa todos los campos obligatorios")
+      setCreateError("Por favor completa todos los campos obligatorios")
       return
     }
 
-    setIsSaving(true)
-
     try {
-      const newClient = await createClient({
-        organizationId: organizationId,
+      setIsSaving(true)
+      setCreateError("")
+
+      await createClient({
+        organizationId: organizationId!,
         name: formData.name,
+        email: formData.email || undefined,
+        phoneNumber: formData.phoneNumber || undefined,
         address: formData.address,
         city: formData.city,
         province: formData.province,
-        phoneNumber: formData.phone || undefined,
-        email: formData.email || undefined,
+        isActive: formData.isActive
       })
 
-      console.log("New client created:", newClient)
-
-      alert("Cliente creado exitosamente!")
-      navigate("/dashboard/clients")
-    } catch (error) {
-      console.error('Error creating client:', error)
-      alert('Error creando el cliente. Intenta de nuevo.')
+      showSuccess("Cliente Creado", "El cliente ha sido creado exitosamente.")
+      
+      // Navegar de vuelta a la lista después de 1.5 segundos
+      setTimeout(() => {
+        navigate("/dashboard/clients")
+      }, 1500)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Error al crear cliente")
+      console.error("Failed to create client:", err)
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleCancel = () => {
-    navigate("/dashboard/clients")
+  const showSuccess = (title: string, description: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    setSuccessDialog({
+      isOpen: true,
+      title,
+      description,
+      type
+    })
   }
 
-  useEffect(() => {
-    if (role !== "orgadmin") {
-      navigate("/login")
-    }
-  }, [role, navigate])
-
-  // No renderizar si no tiene permisos
-  if (role !== "orgadmin") {
+  if (role !== "orgadmin" && role !== "superadmin") {
+    navigate("/login")
     return null
   }
 
   return (
-    <div className="space-y-8 p-8">
+    <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/clients")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver a Clientes
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate("/dashboard/clients")}
+            className="h-8 w-8 p-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">Nuevo Cliente</h1>
-            <p className="text-sm text-muted-foreground">Agrega un nuevo cliente al sistema</p>
+            <p className="text-sm text-muted-foreground">Crear un nuevo cliente</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCancel}
-            disabled={isSaving}
+          <Button 
+            size="sm" 
+            onClick={handleCreateClient}
+            disabled={isSaving || !formData.name || !formData.address || !formData.city || !formData.province}
+            className="bg-green-600 hover:bg-green-700"
           >
-            <X className="h-4 w-4 mr-2" />
-            Cancelar
+            {isSaving ? "Creando..." : "Crear Cliente"}
           </Button>
-          <Button
-            size="sm"
-            onClick={handleSubmit}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate("/dashboard/clients")}
             disabled={isSaving}
+            className="border-red-200 text-red-600 hover:bg-red-50"
           >
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Guardando..." : "Crear Cliente"}
+            Cancelar
           </Button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main Form */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Personal Information */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Información Personal
-                </CardTitle>
-                <CardDescription>Detalles del cliente</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Nombre Completo *</label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      className="mt-1"
-                      placeholder="John Doe"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Email *</label>
-                    <Input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
-                      className="mt-1"
-                      placeholder="john@example.com"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Teléfono *</label>
-                    <Input
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange("phone", e.target.value)}
-                      className="mt-1"
-                      placeholder="+1 (555) 123-4567"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Estado</label>
-                    <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Activo</SelectItem>
-                        <SelectItem value="inactive">Inactivo</SelectItem>
-                        <SelectItem value="suspended">Suspendido</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Dirección *</label>
-                  <Textarea
-                    value={formData.address}
-                    onChange={(e) => handleInputChange("address", e.target.value)}
-                    className="mt-1"
-                    placeholder="Ingresa la dirección completa..."
-                    rows={3}
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
-                    <Input
-                      value={formData.city}
-                      onChange={(e) => handleInputChange("city", e.target.value)}
-                      className="mt-1"
-                      placeholder="Ciudad"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Contacto</label>
-                    <Input
-                      value={formData.contact}
-                      onChange={(e) => handleInputChange("contact", e.target.value)}
-                      className="mt-1"
-                      placeholder="Persona de contacto"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Additional Information */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle>Información Adicional</CardTitle>
-                <CardDescription>Cualquier información adicional</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Notas</label>
-                  <Textarea
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange("notes", e.target.value)}
-                    className="mt-1"
-                    rows={4}
-                    placeholder="Agrega notas adicionales sobre este cliente..."
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Client Summary */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Resumen del Cliente
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                    <span className="text-sm font-medium">
-                      {formData.name || "Nombre no especificado"}
-                    </span>
-                  </div>
-                  {formData.email && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Mail className="h-3 w-3" />
-                      {formData.email}
-                    </p>
-                  )}
-                  {formData.phone && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Phone className="h-3 w-3" />
-                      {formData.phone}
-                    </p>
-                  )}
-                  {formData.address && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <MapPin className="h-3 w-3" />
-                      {formData.address}
-                    </p>
-                  )}
-                  <div className="pt-2">
-                    <span className="text-xs text-muted-foreground">
-                      Estado: {formData.status === "active" ? "Activo" : formData.status === "inactive" ? "Inactivo" : "Suspendido"}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+      {/* Banner de modo creación */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+        <div className="flex items-center gap-2">
+          <Plus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+            Modo de creación activo - Completa la información del cliente y haz clic en "Crear Cliente" para confirmar o "Cancelar" para descartar
+          </p>
         </div>
-      </form>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Client Information */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Información del Cliente
+              </CardTitle>
+              <CardDescription>Detalles de contacto y ubicación</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {createError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    <p className="text-sm text-red-800 dark:text-red-200">{createError}</p>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Nombre</label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  className="mt-1"
+                  placeholder="Nombre del cliente"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Email</label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  className="mt-1"
+                  placeholder="cliente@empresa.com"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
+                <Input
+                  value={formData.phoneNumber}
+                  onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
+                  className="mt-1"
+                  placeholder="+54 9 11 1234-5678"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Dirección</label>
+                <Textarea
+                  value={formData.address}
+                  onChange={(e) => handleInputChange("address", e.target.value)}
+                  className="mt-1"
+                  rows={3}
+                  placeholder="Calle 123, Barrio"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
+                <Input
+                  value={formData.city}
+                  onChange={(e) => handleInputChange("city", e.target.value)}
+                  className="mt-1"
+                  placeholder="Buenos Aires"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Provincia</label>
+                <Input
+                  value={formData.province}
+                  onChange={(e) => handleInputChange("province", e.target.value)}
+                  className="mt-1"
+                  placeholder="CABA"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Estado</label>
+                <select
+                  value={formData.isActive ? "active" : "inactive"}
+                  onChange={(e) => handleInputChange("isActive", e.target.value === "active")}
+                  className="mt-1 block w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                >
+                  <option value="active">Activo</option>
+                  <option value="inactive">Inactivo</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Placeholder for future content */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Información Adicional
+              </CardTitle>
+              <CardDescription>Detalles adicionales del cliente</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">Cliente Nuevo</h3>
+                <p className="text-sm text-muted-foreground">Una vez creado, aquí aparecerá información adicional del cliente.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Success Dialog */}
+      <SuccessDialog
+        isOpen={successDialog.isOpen}
+        onClose={() => setSuccessDialog(prev => ({ ...prev, isOpen: false }))}
+        title={successDialog.title}
+        description={successDialog.description}
+        type={successDialog.type}
+      />
     </div>
   )
 }

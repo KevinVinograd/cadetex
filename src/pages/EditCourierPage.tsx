@@ -6,7 +6,6 @@ import { Label } from "../components/ui/label"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { mockCouriers } from "../lib/mock-data"
 import { ArrowLeft, User, Mail, Phone, MapPin, Truck, AlertCircle } from "lucide-react"
 
 export default function EditCourierPage() {
@@ -14,8 +13,8 @@ export default function EditCourierPage() {
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  // Find the courier by ID
-  const courier = mockCouriers.find(c => c.id === id)
+  // Find the courier by ID (TODO: implement real courier loading)
+  const courier = null
   
   const [formData, setFormData] = useState({
     name: "",

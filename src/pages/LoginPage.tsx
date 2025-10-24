@@ -36,7 +36,7 @@ export default function LoginPage() {
       }
     } catch (error) {
       console.error("Login error:", error)
-      setError("Invalid email or password. Please try again.")
+      setError("Correo electrónico o contraseña inválidos. Intenta de nuevo.")
     } finally {
       setIsLoading(false)
     }
@@ -81,12 +81,12 @@ export default function LoginPage() {
             
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium">
-                Email
+                Correo Electrónico
               </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@example.com"
+                placeholder="admin@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -95,7 +95,7 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium">
-                Password
+                Contraseña
               </Label>
               <Input
                 id="password"
@@ -112,7 +112,7 @@ export default function LoginPage() {
               className="w-full h-11 text-base font-medium shadow-lg shadow-primary/25"
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
             <p className="text-xs text-muted-foreground text-center text-pretty pt-2">
               Enter your credentials to access the system

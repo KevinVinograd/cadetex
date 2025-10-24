@@ -55,6 +55,8 @@ export interface CreateClientRequest {
   province: string;
   phoneNumber?: string;
   email?: string;
+  notes?: string;
+  isActive?: boolean;
 }
 
 export interface Client {

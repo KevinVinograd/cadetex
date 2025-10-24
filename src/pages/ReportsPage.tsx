@@ -2,7 +2,6 @@ import React, { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Button } from "../components/ui/button"
-import { mockTasks, mockClients, mockCouriers } from "../lib/mock-data"
 import { 
   BarChart, 
   Bar, 
@@ -36,27 +35,27 @@ export default function ReportsPage() {
   const [timeRange, setTimeRange] = useState("30")
   const [reportType, setReportType] = useState("overview")
 
-  // Calculate statistics
-  const totalTasks = mockTasks.length
-  const completedTasks = mockTasks.filter(task => task.status === "completed").length
-  const pendingTasks = mockTasks.filter(task => task.status === "pending").length
-  const confirmedTasks = mockTasks.filter(task => task.status === "confirmed").length
-  const totalClients = mockClients.length
-  const totalCouriers = mockCouriers.length
+  // Calculate statistics (TODO: implement real data loading)
+  const totalTasks = 0
+  const completedTasks = 0
+  const pendingTasks = 0
+  const confirmedTasks = 0
+  const totalClients = 0
+  const totalCouriers = 0
 
   // Task status distribution
   const taskStatusData = [
     { name: "Completed", value: completedTasks, color: "#10b981" },
     { name: "Confirmed", value: confirmedTasks, color: "#3b82f6" },
     { name: "Pending", value: pendingTasks, color: "#f59e0b" },
-    { name: "Canceled", value: mockTasks.filter(task => task.status === "canceled").length, color: "#ef4444" }
+    { name: "Canceled", value: 0, color: "#ef4444" }
   ]
 
   // Task type distribution
   const taskTypeData = [
-    { name: "Delivery", value: mockTasks.filter(task => task.type === "delivery").length },
-    { name: "Pickup", value: mockTasks.filter(task => task.type === "pickup").length },
-    { name: "Both", value: mockTasks.filter(task => task.type === "both").length }
+    { name: "Delivery", value: 0 },
+    { name: "Pickup", value: 0 },
+    { name: "Both", value: 0 }
   ]
 
   // Monthly task completion (mock data)

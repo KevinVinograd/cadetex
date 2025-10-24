@@ -11,7 +11,7 @@ export interface Task {
   providerId?: string
   providerName?: string
   organizationId?: string
-  referenceBL: string
+  referenceNumber: string
   mbl?: string
   hbl?: string
   freightCertificate?: string

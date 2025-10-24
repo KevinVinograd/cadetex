@@ -9,7 +9,6 @@ import { Label } from "../components/ui/label"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
 import { useCouriers } from "../hooks/use-couriers"
-import { mockCouriers } from "../lib/mock-data"
 import {
   Search,
   MapPin,
@@ -77,7 +76,7 @@ export default function CourierTasksPage() {
     if (courierId) {
       fetchCourierTasks()
     }
-  }, [courierId, getTasksByCourier])
+  }, [courierId])
 
   const filteredTasks = courierTasks.filter((task) => {
     const matchesSearch =
@@ -282,7 +281,7 @@ export default function CourierTasksPage() {
               <div className="text-lg font-bold text-green-600">
                 {courierTasks.filter(t => t.status === 'COMPLETED').length}
               </div>
-              <div className="text-xs text-muted-foreground">Completadas</div>
+              <div className="text-xs text-muted-foreground">Finalizadas</div>
             </div>
             <div className="flex-1">
               <div className="text-lg font-bold text-orange-600">

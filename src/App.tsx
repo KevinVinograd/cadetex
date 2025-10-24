@@ -19,9 +19,7 @@ import ProviderDetailPage from './pages/ProviderDetailPage'
 import NewProviderPage from './pages/NewProviderPage'
 import ReportsPage from './pages/ReportsPage'
 import TasksPage from './pages/TasksPage'
-import NewTaskPage from './pages/NewTaskPage'
-import TaskDetailPage from './pages/TaskDetailPage'
-import EditTaskPage from './pages/EditTaskPage'
+import TaskFormPage from './pages/TaskFormPage'
 import CloneTaskPage from './pages/CloneTaskPage'
 import CourierTasksPage from './pages/CourierTasksPage'
 import CourierTaskDetailPage from './pages/CourierTaskDetailPage'
@@ -54,10 +52,10 @@ function App() {
               <Route path="providers/new" element={<NewProviderPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="tasks" element={<TasksPage />} />
-              <Route path="tasks/new" element={<NewTaskPage />} />
+              <Route path="tasks/new" element={<TaskFormPage />} />
               <Route path="tasks/clone" element={<CloneTaskPage />} />
-              <Route path="tasks/:id/edit" element={<EditTaskPage />} />
-              <Route path="tasks/:id" element={<TaskDetailPage />} />
+              <Route path="tasks/:id/edit" element={<TaskFormPage />} />
+              <Route path="tasks/:id" element={<TaskFormPage />} />
             </Route>
 
             {/* Courier routes */}

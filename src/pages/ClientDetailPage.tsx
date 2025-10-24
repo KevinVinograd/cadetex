@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Badge } from "../components/ui/badge"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
-import { mockTasks } from "../lib/mock-data"
 import { useClients } from "../hooks/use-clients"
 import { SuccessDialog } from "../components/ui/success-dialog"
 import { 
@@ -56,7 +55,7 @@ export default function ClientDetailPage() {
   // Find the client by ID
   const client = clients.find(c => c.id === id)
 
-  // Load client data into form
+  // Load client data into form when component mounts or client changes
   useEffect(() => {
     if (client) {
       setFormData({
@@ -69,10 +68,10 @@ export default function ClientDetailPage() {
         isActive: client.isActive
       })
     }
-  }, [client])
+  }, [client?.id])
   
-  // Get tasks for this client
-  const clientTasks = mockTasks.filter(task => task.clientId === id)
+  // Get tasks for this client (TODO: implement real task loading)
+  const clientTasks: any[] = []
 
   if (isLoading) {
     return (
@@ -131,7 +130,7 @@ export default function ClientDetailPage() {
     const labels = {
       en_preparacion: "En Preparación",
       pendiente_confirmar: "Pendiente Confirmar",
-      confirmada_tomar: "Confirmada Tomar",
+      confirmada_tomar: "Confirmada",
       finalizada: "Finalizada",
       cancelada: "Cancelada",
     }
@@ -147,7 +146,7 @@ export default function ClientDetailPage() {
     return <Badge className={variants[type as keyof typeof variants]}>{type}</Badge>
   }
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -157,7 +156,6 @@ export default function ClientDetailPage() {
     setIsSaving(true)
     try {
       await updateClient(client.id, formData)
-      setIsEditing(false)
       
       // Mostrar diálogo de éxito
       setSuccessDialog({
@@ -166,6 +164,11 @@ export default function ClientDetailPage() {
         description: `Los datos de ${formData.name} han sido actualizados correctamente.`,
         type: 'success'
       })
+      
+      // Navegar de vuelta a la lista después de 1.5 segundos
+      setTimeout(() => {
+        navigate("/dashboard/clients")
+      }, 1500)
     } catch (error) {
       console.error('Error updating client:', error)
       

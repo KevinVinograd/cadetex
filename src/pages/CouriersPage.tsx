@@ -81,9 +81,9 @@ export default function CouriersPage() {
       await deleteCourier(courierToDelete)
       setIsDeleteDialogOpen(false)
       setCourierToDelete(null)
-      showSuccess("Courier Eliminado", "El courier ha sido eliminado exitosamente.")
+      showSuccess("Cadete Eliminado", "El cadete ha sido eliminado exitosamente.")
     } catch (err) {
-      showSuccess("Error", "Error al eliminar el courier", "error")
+      showSuccess("Error", "Error al eliminar el cadete", "error")
       console.error("Failed to delete courier:", err)
     } finally {
       setIsDeleting(false)
@@ -113,9 +113,9 @@ export default function CouriersPage() {
             Volver al Dashboard
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Gestión de Couriers</h1>
+            <h1 className="text-2xl font-bold">Gestión de Cadetes</h1>
             <p className="text-gray-600 dark:text-gray-400">
-              Administra los couriers de tu organización
+              Administra los cadetes de tu organización
             </p>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function CouriersPage() {
           <Link to="/dashboard/couriers/new">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Nuevo Courier
+              Nuevo Cadete
             </Button>
           </Link>
         )}
@@ -131,9 +131,9 @@ export default function CouriersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Couriers</CardTitle>
+          <CardTitle>Lista de Cadetes</CardTitle>
           <CardDescription>
-            {filteredCouriers.length} courier{filteredCouriers.length !== 1 ? 's' : ''} en tu organización
+            {filteredCouriers.length} cadete{filteredCouriers.length !== 1 ? 's' : ''} en tu organización
           </CardDescription>
         </CardHeader>
         <CardContent>

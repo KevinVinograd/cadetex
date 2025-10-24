@@ -37,8 +37,9 @@ export default function OrganizationUsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
+  const [editPassword, setEditPassword] = useState("")
   const [editRole, setEditRole] = useState("")
-  const [editIsActive, setEditIsActive] = useState(true)
+  const [editIsActive, setEditIsActive] = useState<boolean>(true)
   const [isUpdating, setIsUpdating] = useState(false)
 
   // Estados para diálogos de confirmación
@@ -127,10 +128,11 @@ export default function OrganizationUsersPage() {
 
   const openEditDialog = (user: any) => {
     setEditingUser(user)
-    setEditName(user.name)
-    setEditEmail(user.email)
-    setEditRole(user.role)
-    setEditIsActive(user.isActive)
+    setEditName(user.name || "")
+    setEditEmail(user.email || "")
+    setEditPassword("") // Limpiar password para edición
+    setEditRole(user.role || "")
+    setEditIsActive(user.isActive !== undefined ? user.isActive : true)
     setCreateError("")
     setIsEditDialogOpen(true)
   }
@@ -164,7 +166,7 @@ export default function OrganizationUsersPage() {
         setUserRole("")
         setIsDialogOpen(false)
         showSuccess("Usuario Creado", "El usuario ha sido creado exitosamente.")
-        setTimeout(() => window.location.reload(), 1500)
+        // No recargar la página, los datos se actualizarán automáticamente
       } else {
         const errorData = await response.json()
         setCreateError(errorData.error || "Error al crear usuario")
@@ -184,31 +186,59 @@ export default function OrganizationUsersPage() {
       setIsUpdating(true)
       setCreateError("")
 
+      // Verificar que el token existe
+      const token = localStorage.getItem('authToken')
+      if (!token) {
+        setCreateError("Sesión expirada. Por favor, inicia sesión nuevamente.")
+        return
+      }
+
+      // Preparar datos para actualización
+      const updateData: any = {
+        name: editName,
+        email: editEmail,
+        role: editRole,
+        isActive: editIsActive
+      }
+
+      // Solo incluir password si se proporcionó uno nuevo
+      if (editPassword && editPassword.trim() !== "") {
+        updateData.password = editPassword
+      }
+
       const response = await fetch(`http://localhost:8080/users/${editingUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          name: editName,
-          email: editEmail,
-          role: editRole,
-          isActive: editIsActive
-        })
+        body: JSON.stringify(updateData)
       })
 
       if (response.ok) {
         setEditingUser(null)
         setIsEditDialogOpen(false)
         showSuccess("Usuario Actualizado", "El usuario ha sido actualizado exitosamente.")
-        setTimeout(() => window.location.reload(), 1500)
+        // No recargar la página, solo limpiar el formulario
+        setEditName("")
+        setEditEmail("")
+        setEditPassword("")
+        setEditRole("")
+        setEditIsActive(true)
+      } else if (response.status === 401) {
+        // Token expirado o inválido
+        setCreateError("Sesión expirada. Por favor, inicia sesión nuevamente.")
+        // Opcional: redirigir al login
+        setTimeout(() => {
+          localStorage.removeItem('authToken')
+          window.location.href = '/login'
+        }, 2000)
       } else {
         const errorData = await response.json()
         setCreateError(errorData.error || "Error al actualizar usuario")
       }
     } catch (err) {
-      setCreateError("Error al actualizar usuario")
+      setCreateError("Error de conexión. Verifica tu conexión a internet.")
       console.error("Failed to update user:", err)
     } finally {
       setIsUpdating(false)
@@ -230,7 +260,7 @@ export default function OrganizationUsersPage() {
 
           if (response.ok) {
             showSuccess("Usuario Eliminado", "El usuario ha sido eliminado exitosamente.")
-            setTimeout(() => window.location.reload(), 1500)
+            // No recargar la página, los datos se actualizarán automáticamente
           } else {
             const errorData = await response.json()
             showSuccess("Error", errorData.error || "Error al eliminar usuario", "error")
@@ -303,7 +333,7 @@ export default function OrganizationUsersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Correo Electrónico</TableHead>
                 <TableHead>Rol</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
@@ -386,7 +416,7 @@ export default function OrganizationUsersPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="userEmail">Email</Label>
+              <Label htmlFor="userEmail">Correo Electrónico</Label>
               <Input
                 id="userEmail"
                 type="email"
@@ -478,13 +508,24 @@ export default function OrganizationUsersPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="editEmail">Email</Label>
+              <Label htmlFor="editEmail">Correo Electrónico</Label>
               <Input
                 id="editEmail"
                 type="email"
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
                 placeholder="usuario@empresa.com"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="editPassword">Nueva Contraseña (opcional)</Label>
+              <Input
+                id="editPassword"
+                type="password"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                placeholder="Dejar vacío para mantener la actual"
               />
             </div>
 
