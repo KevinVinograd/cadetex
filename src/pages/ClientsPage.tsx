@@ -5,7 +5,6 @@ import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { CornerLogout } from "../components/ui/corner-logout"
 import { useAuth } from "../hooks/use-auth"
 import { useClients } from "../hooks/use-clients"
 import { Alert, AlertDescription } from "../components/ui/alert"
@@ -143,7 +142,6 @@ export default function ClientsPage() {
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
-        <CornerLogout />
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -153,7 +151,6 @@ export default function ClientsPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <CornerLogout />
 
       {/* Header */}
       <div className="flex items-center justify-between">

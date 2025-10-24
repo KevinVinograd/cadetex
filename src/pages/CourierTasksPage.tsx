@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Label } from "../components/ui/label"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
-import { useCouriers } from "../hooks/use-couriers"
 import {
   Search,
   MapPin,
@@ -27,35 +26,30 @@ import {
 type TaskStatus = "PENDING" | "PENDING_CONFIRMATION" | "CONFIRMED" | "COMPLETED" | "CANCELLED"
 
 export default function CourierTasksPage() {
-  const { user, role } = useAuth()
+  const { role } = useAuth()
   const { tasks, isLoading, error, getTasksByCourier, updateTaskStatus } = useTasks()
-  const { couriers } = useCouriers()
 
-  console.log('CourierTasksPage - user:', user, 'role:', role)
 
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
-  const [contactFilter, setContactFilter] = useState("all") // "all", "client", "provider"
-  const [selectedContactId, setSelectedContactId] = useState("all")
+  const [contactFilter] = useState("all") // "all", "client", "provider"
+  const [selectedContactId] = useState("all")
   const [showFinalizeModal, setShowFinalizeModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState<any>(null)
   const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null)
   const [additionalPhoto, setAdditionalPhoto] = useState<string | null>(null)
   const [isFinalizing, setIsFinalizing] = useState(false)
-  const [courierTasks, setCourierTasks] = useState<any[]>([])
 
   // Get courier ID from the authenticated user
   // For now, we'll use the hardcoded courier ID from the database
-  // TODO: Implement proper courier lookup by userId
+  // Implement proper courier lookup by userId
   const courierId = "00000000-0000-0000-0000-000000000001" // Carlos López courier ID
 
-  console.log('CourierTasksPage - courierId:', courierId)
 
   // Redirect if not a courier
   useEffect(() => {
     if (role && role !== "courier") {
-      console.log('User is not a courier, redirecting to login')
       window.location.href = "/login"
     }
   }, [role])
@@ -64,10 +58,7 @@ export default function CourierTasksPage() {
   useEffect(() => {
     const fetchCourierTasks = async () => {
       try {
-        console.log('Fetching tasks for courier:', courierId)
-        const tasks = await getTasksByCourier(courierId)
-        console.log('Fetched courier tasks:', tasks)
-        setCourierTasks(tasks)
+        await getTasksByCourier(courierId)
       } catch (err) {
         console.error('Error fetching courier tasks:', err)
       }
@@ -78,7 +69,18 @@ export default function CourierTasksPage() {
     }
   }, [courierId])
 
-  const filteredTasks = courierTasks.filter((task) => {
+  // Force re-render when tasks change
+  useEffect(() => {
+    // This effect will run whenever tasks change, ensuring the UI updates
+    console.log('CourierTasksPage - Tareas actualizadas:', tasks)
+    console.log('CourierTasksPage - Fechas programadas:', tasks.map(t => ({ 
+      id: t.id, 
+      scheduledDate: t.scheduledDate,
+      parsedDate: t.scheduledDate ? new Date(t.scheduledDate) : null
+    })))
+  }, [tasks])
+
+  const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
       (task.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
       (task.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
@@ -105,39 +107,120 @@ export default function CourierTasksPage() {
     return matchesSearch && matchesStatus && matchesPriority && matchesContact
   })
 
-  // Group tasks by date
+  // Group tasks by date and provider
   const groupedTasks = useMemo(() => {
-    const groups = filteredTasks.reduce((acc, task) => {
-      const date = task.scheduledDate
-        ? new Date(task.scheduledDate).toLocaleDateString('es-ES', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        })
-        : 'Sin fecha programada'
-      if (!acc[date]) {
-        acc[date] = []
+    // First group by date
+    const dateGroups = filteredTasks.reduce((acc, task) => {
+      let dateKey = 'Sin fecha programada'
+      
+      if (task.scheduledDate) {
+        try {
+          // Parse the date more carefully to handle different formats
+          let parsedDate: Date
+          
+          // If it's already in ISO format or has timezone info
+          if (task.scheduledDate.includes('T') || task.scheduledDate.includes('Z')) {
+            parsedDate = new Date(task.scheduledDate)
+          } else {
+            // If it's just a date string (YYYY-MM-DD), treat it as local date
+            const [year, month, day] = task.scheduledDate.split('-').map(Number)
+            parsedDate = new Date(year, month - 1, day) // month is 0-indexed
+          }
+          
+          // Check if the date is valid
+          if (!isNaN(parsedDate.getTime())) {
+            dateKey = parsedDate.toLocaleDateString('es-ES', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })
+          }
+        } catch (error) {
+          console.warn('Error parsing date:', task.scheduledDate, error)
+          dateKey = 'Fecha inválida'
+        }
       }
-      acc[date].push(task)
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = []
+      }
+      acc[dateKey].push(task)
       return acc
     }, {} as Record<string, typeof filteredTasks>)
 
-    // Sort tasks within each date group by priority
-    Object.keys(groups).forEach(date => {
-      groups[date].sort((a, b) => {
-        const priorityOrder = { URGENT: 0, NORMAL: 1 }
-        return (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1)
+    // Sort date groups chronologically
+    const sortedDateGroups: Record<string, typeof filteredTasks> = {}
+    const dateKeys = Object.keys(dateGroups)
+    
+    // Separate groups with valid dates from groups without dates
+    const validDateGroups = dateKeys.filter(key => key !== 'Sin fecha programada' && key !== 'Fecha inválida')
+    const invalidDateGroups = dateKeys.filter(key => key === 'Sin fecha programada' || key === 'Fecha inválida')
+    
+    // Sort valid dates chronologically
+    validDateGroups.sort((a, b) => {
+      const dateA = new Date(a.split(' ').slice(-3).join(' ')) // Extract date part
+      const dateB = new Date(b.split(' ').slice(-3).join(' '))
+      return dateA.getTime() - dateB.getTime()
+    })
+    
+    // Combine sorted valid dates with invalid dates at the end
+    const sortedKeys = [...validDateGroups, ...invalidDateGroups]
+    
+    sortedKeys.forEach(key => {
+      sortedDateGroups[key] = dateGroups[key]
+    })
+
+    // Now group by provider within each date
+    const finalGroups: Record<string, any> = {}
+    
+    Object.keys(sortedDateGroups).forEach(dateKey => {
+      const tasksForDate = sortedDateGroups[dateKey]
+      
+      // Group tasks by provider within this date
+      const providerGroups = tasksForDate.reduce((acc, task) => {
+        const providerKey = task.providerId ? `${task.providerId}|${task.providerName}` : 'cliente|' + (task.clientId ? `${task.clientId}|${task.clientName}` : 'sin_contacto')
+        
+        if (!acc[providerKey]) {
+          acc[providerKey] = []
+        }
+        acc[providerKey].push(task)
+        return acc
+      }, {} as Record<string, typeof tasksForDate>)
+
+      // Sort tasks within each provider group by priority
+      Object.keys(providerGroups).forEach(providerKey => {
+        providerGroups[providerKey].sort((a, b) => {
+          const priorityOrder = { URGENT: 0, NORMAL: 1 }
+          return (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1)
+        })
+      })
+
+      // Create final structure with provider information
+      Object.keys(providerGroups).forEach(providerKey => {
+        const [providerId] = providerKey.split('|')
+        const tasks = providerGroups[providerKey]
+        const isMultipleTasks = tasks.length > 1
+        
+        // Obtener el nombre correcto del primer task del grupo
+        const firstTask = tasks[0]
+        const providerName = firstTask.providerName || firstTask.clientName || 'Sin contacto'
+        
+        const groupKey = `${dateKey}|${providerKey}`
+        finalGroups[groupKey] = {
+          dateKey,
+          providerId,
+          providerName,
+          tasks,
+          isMultipleTasks,
+          taskCount: tasks.length
+        }
       })
     })
 
-    return groups
+    return finalGroups
   }, [filteredTasks])
 
-  // Get contacts list based on filter - for now return empty since we don't have client/provider hooks in this context
-  const contactsList = useMemo(() => {
-    return []
-  }, [contactFilter])
 
   // Show loading while data is being fetched
   if (isLoading) {
@@ -209,12 +292,12 @@ export default function CourierTasksPage() {
   }
 
   // Get the relevant address based on task type
-  const getTaskAddress = (task: typeof courierTasks[0]) => {
+  const getTaskAddress = (task: any) => {
     return task.addressOverride || "Sin dirección especificada"
   }
 
   // Get the relevant contact based on task type
-  const getTaskContact = (task: typeof courierTasks[0]) => {
+  const getTaskContact = (task: any) => {
     return task.clientName || task.providerName || "Sin contacto especificado"
   }
 
@@ -233,14 +316,7 @@ export default function CourierTasksPage() {
       // Update task status to COMPLETED
       await updateTaskStatus(selectedTask.id, "COMPLETED")
 
-      // Update local state
-      setCourierTasks(prev =>
-        prev.map(task =>
-          task.id === selectedTask.id
-            ? { ...task, status: "COMPLETED" }
-            : task
-        )
-      )
+      // Task status will be updated by the hook automatically
 
       setShowFinalizeModal(false)
       alert("¡Tarea finalizada exitosamente!")
@@ -273,19 +349,19 @@ export default function CourierTasksPage() {
           <div className="flex gap-4 text-center">
             <div className="flex-1">
               <div className="text-lg font-bold text-primary">
-                {courierTasks.filter(t => t.status === 'PENDING').length}
+                {filteredTasks.filter(t => t.status === 'PENDING').length}
               </div>
               <div className="text-xs text-muted-foreground">Pendientes</div>
             </div>
             <div className="flex-1">
               <div className="text-lg font-bold text-green-600">
-                {courierTasks.filter(t => t.status === 'COMPLETED').length}
+                {filteredTasks.filter(t => t.status === 'COMPLETED').length}
               </div>
               <div className="text-xs text-muted-foreground">Finalizadas</div>
             </div>
             <div className="flex-1">
               <div className="text-lg font-bold text-orange-600">
-                {courierTasks.filter(t => t.status === 'CONFIRMED').length}
+                {filteredTasks.filter(t => t.status === 'CONFIRMED').length}
               </div>
               <div className="text-xs text-muted-foreground">Confirmadas</div>
             </div>
@@ -347,7 +423,7 @@ export default function CourierTasksPage() {
 
         {/* Grouped Tasks List */}
         <div className="space-y-6">
-          {courierTasks.length === 0 ? (
+          {filteredTasks.length === 0 ? (
             <div className="text-center py-12">
               <Truck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No hay tareas asignadas</h3>
@@ -364,25 +440,67 @@ export default function CourierTasksPage() {
               </CardContent>
             </Card>
           ) : (
-            Object.entries(groupedTasks).map(([date, tasks]) => (
-              <div key={date} className="space-y-3">
-                {/* Date Header */}
-                <div className="flex items-center gap-3 sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-10 py-2">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold capitalize">{date}</h2>
-                  <Badge variant="outline" className="ml-auto">{tasks.length} tarea{tasks.length !== 1 ? 's' : ''}</Badge>
-                </div>
+            (() => {
+              // Group by date first
+              const dateGroups: Record<string, any[]> = {}
+              Object.values(groupedTasks).forEach((group: any) => {
+                if (!dateGroups[group.dateKey]) {
+                  dateGroups[group.dateKey] = []
+                }
+                dateGroups[group.dateKey].push(group)
+              })
 
-                {/* Tasks for this date */}
-                <div className="space-y-3">
-                  {tasks.map((task) => (
-                    <Card key={task.id} className="border hover:shadow-md transition-shadow">
+              return Object.entries(dateGroups).map(([dateKey, providerGroups]) => (
+                <div key={dateKey} className="space-y-4">
+                  {/* Date Header */}
+                  <div className="flex items-center gap-3 sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-10 py-2">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold capitalize">{dateKey}</h2>
+                    <Badge variant="outline" className="ml-auto">
+                      {providerGroups.reduce((total, group) => total + group.taskCount, 0)} tarea{providerGroups.reduce((total, group) => total + group.taskCount, 0) !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+
+                  {/* Provider Groups */}
+                  {providerGroups.map((group, groupIndex) => (
+                    <div key={`${group.providerId}-${groupIndex}`} className="space-y-3">
+                      {/* Provider Header - Only show if multiple tasks */}
+                      {group.isMultipleTasks && (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20 rounded-xl border-2 border-blue-300 dark:border-blue-700 shadow-sm">
+                          <div className="p-2 bg-blue-500 rounded-full">
+                            <Building2 className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-lg text-blue-900 dark:text-blue-100">
+                                {group.providerName || 'Cliente'}
+                              </span>
+                              <Badge className="bg-blue-500 text-white font-bold px-3 py-1">
+                                {group.taskCount} tarea{group.taskCount !== 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                              Múltiples tareas en la misma ubicación
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tasks for this provider */}
+                      <div className="space-y-3">
+                        {group.tasks.map((task: any, taskIndex: number) => (
+                    <Card key={task.id} className={`border hover:shadow-md transition-shadow ${group.isMultipleTasks ? 'border-l-4 border-l-blue-400 bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
                       <CardContent className="p-4">
                         {/* Task Header - Mobile Optimized */}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <h3 className="font-bold text-lg text-foreground">{task.referenceNumber || "Sin referencia"}</h3>
+                              {group.isMultipleTasks && (
+                                <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
+                                  {taskIndex + 1} de {group.taskCount}
+                                </Badge>
+                              )}
                               {getTypeBadge(task.type)}
                               {getPriorityBadge(task.priority)}
                             </div>
@@ -515,10 +633,13 @@ export default function CourierTasksPage() {
                         )}
                       </CardContent>
                     </Card>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
-            ))
+              ))
+            })()
           )}
         </div>
       </div>

@@ -4,7 +4,6 @@ import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
-import { CornerLogout } from "../components/ui/corner-logout"
 import { useAuth } from "../hooks/use-auth"
 import { useUsers } from "../hooks/use-users"
 import { useOrganizations } from "../hooks/use-organizations"
@@ -84,7 +83,6 @@ export default function OrganizationUsersPage() {
   if (!organization) {
     return (
       <div className="container mx-auto p-6 space-y-6">
-        <CornerLogout />
         <div className="text-center py-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             Organización no encontrada
@@ -293,7 +291,6 @@ export default function OrganizationUsersPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <CornerLogout />
 
       {/* Header */}
       <div className="flex items-center justify-between">

@@ -4,7 +4,6 @@ import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
-import { CornerLogout } from "../components/ui/corner-logout"
 import { useAuth } from "../hooks/use-auth"
 import { useOrganizations } from "../hooks/use-organizations"
 import { Alert, AlertDescription } from "../components/ui/alert"
@@ -124,7 +123,6 @@ export default function SuperAdminPage() {
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
-        <CornerLogout />
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -134,7 +132,6 @@ export default function SuperAdminPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <CornerLogout />
       <Card>
         <CardHeader>
           <CardTitle>Gestión de Organizaciones</CardTitle>

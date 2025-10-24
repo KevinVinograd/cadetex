@@ -100,7 +100,7 @@ export default function CourierTaskDetailPage() {
     )
   }
 
-  // TODO: Load client details
+  // Load client details
   const client = null
 
   const getStatusBadge = (status: string) => {

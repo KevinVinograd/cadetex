@@ -76,11 +76,22 @@ export function useTasks() {
   const [isLoadingTask, setIsLoadingTask] = useState(false)
   const [taskError, setTaskError] = useState<string | null>(null)
 
+  // Debug effect to track tasks state changes
+  useEffect(() => {
+    console.log('useTasks - Tasks state changed:', {
+      tasksLength: tasks.length,
+      cancelledCount: tasks.filter(t => t.status === 'CANCELLED').length,
+      tasks: tasks.map(t => ({ id: t.id, status: t.status }))
+    })
+  }, [tasks])
+
   const fetchTasks = useCallback(async () => {
     try {
+      console.log('useTasks - fetchTasks called')
       setIsLoading(true)
       setError(null)
       const response = await apiService.getTasks()
+      console.log('useTasks - fetchTasks response:', response.length, 'tasks')
       setTasks(response)
     } catch (err) {
       console.error('Error fetching tasks:', err)
@@ -103,14 +114,8 @@ export function useTasks() {
 
   const updateTask = async (taskId: string, taskData: UpdateTaskRequest): Promise<Task> => {
     try {
-      console.log('Hook updateTask - ID:', taskId, 'Data:', taskData)
       const updatedTask = await apiService.updateTask(taskId, taskData)
-      console.log('Hook updateTask - Respuesta del API:', updatedTask)
-      setTasks(prev => {
-        const newTasks = prev.map(task => task.id === taskId ? updatedTask : task)
-        console.log('Hook updateTask - Estado actualizado:', newTasks.find(t => t.id === taskId))
-        return newTasks
-      })
+      setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task))
       return updatedTask
     } catch (err) {
       console.error('Error updating task:', err)
@@ -145,21 +150,40 @@ export function useTasks() {
     }
   }, [])
 
-  const getTasksByOrganization = async (organizationId: string): Promise<Task[]> => {
+  const getTasksByOrganization = useCallback(async (organizationId: string): Promise<Task[]> => {
     try {
-      return await apiService.getTasksByOrganization(organizationId)
+      console.log('useTasks - getTasksByOrganization called for:', organizationId)
+      setIsLoading(true)
+      setError(null)
+      const response = await apiService.getTasksByOrganization(organizationId)
+      console.log('useTasks - getTasksByOrganization response:', response.length, 'tasks')
+      console.log('useTasks - Task statuses:', response.map(t => ({ id: t.id, status: t.status })))
+      setTasks(response)
+      return response
     } catch (err) {
       console.error('Error fetching tasks by organization:', err)
+      setError('Error al cargar las tareas de la organización')
       throw new Error('Error al cargar las tareas de la organización')
+    } finally {
+      setIsLoading(false)
     }
-  }
+  }, [])
 
   const getTasksByCourier = async (courierId: string): Promise<Task[]> => {
     try {
-      return await apiService.getTasksByCourier(courierId)
+      console.log('useTasks - getTasksByCourier called for:', courierId)
+      setIsLoading(true)
+      setError(null)
+      const response = await apiService.getTasksByCourier(courierId)
+      console.log('useTasks - getTasksByCourier response:', response.length, 'tasks')
+      setTasks(response)
+      return response
     } catch (err) {
       console.error('Error fetching tasks by courier:', err)
+      setError('Error al cargar las tareas del courier')
       throw new Error('Error al cargar las tareas del courier')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -187,9 +211,6 @@ export function useTasks() {
     }
   }
 
-  useEffect(() => {
-    fetchTasks()
-  }, [])
 
   return {
     tasks,

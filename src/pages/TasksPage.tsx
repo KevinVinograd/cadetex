@@ -5,11 +5,10 @@ import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { CornerLogout } from "../components/ui/corner-logout"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
 import { Alert, AlertDescription } from "../components/ui/alert"
-import { Loader2, Plus, Search, Eye, Trash2, Download } from "lucide-react"
+import { Loader2, Plus, Search, Eye, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
@@ -22,6 +21,8 @@ export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<string>("createdAt")
+  const [sortOrder, setSortOrder] = useState<string>("desc")
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -51,19 +52,56 @@ export default function TasksPage() {
     onConfirm: () => { }
   })
 
-  // Filter tasks based on search and filters
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch =
-      task.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.providerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.courierName?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Filter and sort tasks based on search, filters, and sorting options
+  const filteredTasks = tasks
+    .filter((task) => {
+      const matchesSearch =
+        task.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.providerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.courierName?.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const matchesStatus = statusFilter === "all" || task.status === statusFilter
-    const matchesType = typeFilter === "all" || task.type === typeFilter
+      const matchesStatus = statusFilter === "all" || task.status === statusFilter
+      const matchesType = typeFilter === "all" || task.type === typeFilter
 
-    return matchesSearch && matchesStatus && matchesType
-  })
+      return matchesSearch && matchesStatus && matchesType
+    })
+    .sort((a, b) => {
+      let aValue: any
+      let bValue: any
+
+      switch (sortBy) {
+        case "createdAt":
+          aValue = new Date(a.createdAt).getTime()
+          bValue = new Date(b.createdAt).getTime()
+          break
+        case "scheduledDate":
+          aValue = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0
+          bValue = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0
+          break
+        case "referenceNumber":
+          aValue = a.referenceNumber || ""
+          bValue = b.referenceNumber || ""
+          break
+        case "status":
+          aValue = a.status
+          bValue = b.status
+          break
+        case "priority":
+          aValue = a.priority || "NORMAL"
+          bValue = b.priority || "NORMAL"
+          break
+        default:
+          aValue = new Date(a.createdAt).getTime()
+          bValue = new Date(b.createdAt).getTime()
+      }
+
+      if (sortOrder === "asc") {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
+      } else {
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
+      }
+    })
 
   // Calculate task statistics
   const totalTasks = tasks.length
@@ -79,6 +117,22 @@ export default function TasksPage() {
 
   const handleExportAllTasks = () => {
     exportAllTasksToExcel(tasks as any[])
+  }
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortBy(field)
+      setSortOrder("asc")
+    }
+  }
+
+  const getSortIcon = (field: string) => {
+    if (sortBy !== field) {
+      return <ArrowUpDown className="h-4 w-4" />
+    }
+    return sortOrder === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
   }
 
   const handleDeleteClick = (taskId: string, taskReference: string) => {
@@ -173,7 +227,6 @@ export default function TasksPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <CornerLogout />
       
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -328,17 +381,82 @@ export default function TasksPage() {
               </Select>
             </div>
 
+            {/* Sorting Controls */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Fecha de Creación</SelectItem>
+                  <SelectItem value="scheduledDate">Fecha Programada</SelectItem>
+                  <SelectItem value="referenceNumber">Número de Referencia</SelectItem>
+                  <SelectItem value="status">Estado</SelectItem>
+                  <SelectItem value="priority">Prioridad</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger className="w-full md:w-[150px]">
+                  <SelectValue placeholder="Orden" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Descendente</SelectItem>
+                  <SelectItem value="asc">Ascendente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Referencia</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("referenceNumber")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Referencia
+                      {getSortIcon("referenceNumber")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("type")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Tipo
+                      {getSortIcon("type")}
+                    </div>
+                  </TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Proveedor</TableHead>
                   <TableHead>Cadete</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead>Programada</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("status")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Estado
+                      {getSortIcon("status")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("priority")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Prioridad
+                      {getSortIcon("priority")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("scheduledDate")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Programada
+                      {getSortIcon("scheduledDate")}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>

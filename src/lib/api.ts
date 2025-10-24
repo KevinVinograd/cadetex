@@ -142,20 +142,28 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
+      // Verificar si la respuesta está vacía
+      if (!response.ok) {
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // Si no se puede parsear el JSON, usar el mensaje por defecto
+        }
+        throw new Error(errorMessage);
+      }
 
-    // Para respuestas DELETE, no intentar parsear JSON si no hay contenido
-    if (response.status === 204 || response.headers.get('content-length') === '0') {
-      return {} as T;
-    }
+      // Para respuestas DELETE, no intentar parsear JSON si no hay contenido
+      if (response.status === 204 || response.headers.get('content-length') === '0') {
+        return {} as T;
+      }
 
     // Verificar si hay contenido antes de parsear JSON
     const text = await response.text();
@@ -168,6 +176,13 @@ class ApiService {
     } catch (e) {
       // Si no es JSON válido, devolver el texto como string
       return text as T;
+    }
+    } catch (error) {
+      // Manejar errores de red
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('Error de conexión: No se pudo conectar con el servidor. Verifica que el backend esté ejecutándose.');
+      }
+      throw error;
     }
   }
 

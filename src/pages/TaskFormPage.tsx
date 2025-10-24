@@ -167,12 +167,10 @@ export default function TaskFormPage() {
                         formData.status === "finalizada" ? "COMPLETED" :
                         formData.status === "cancelada" ? "CANCELLED" : "PENDING"
 
-      const taskData = {
-        organizationId: organizationId,
+      // Preparar datos para actualización, limpiando campos no necesarios
+      const taskData: any = {
         type: taskType as 'RETIRE' | 'DELIVER',
         referenceNumber: formData.referenceBL,
-        clientId: formData.contactType === "client" ? formData.contactId : undefined,
-        providerId: formData.contactType === "provider" ? formData.contactId : undefined,
         addressOverride: formData.address || undefined,
         city: formData.city || undefined,
         province: formData.province || undefined,
@@ -191,12 +189,37 @@ export default function TaskFormPage() {
         linkedTaskId: undefined
       }
 
+      // Solo incluir clientId o providerId, no ambos
+      if (formData.contactType === "client" && formData.contactId) {
+        taskData.clientId = formData.contactId
+        // Asegurar que providerId no esté presente
+        delete taskData.providerId
+      } else if (formData.contactType === "provider" && formData.contactId) {
+        taskData.providerId = formData.contactId
+        // Asegurar que clientId no esté presente
+        delete taskData.clientId
+      } else {
+        // Si no hay contacto seleccionado, limpiar ambos
+        delete taskData.clientId
+        delete taskData.providerId
+      }
+
+      // Limpiar campos undefined para no enviarlos
+      Object.keys(taskData).forEach(key => {
+        if (taskData[key] === undefined) {
+          delete taskData[key]
+        }
+      })
+
       if (id) {
         // Editar tarea existente
-        console.log("Actualizando tarea con ID:", id)
-        console.log("Datos enviados:", taskData)
+        console.log('Actualizando tarea con datos:', taskData)
+        console.log('Tipo de contacto:', formData.contactType)
+        console.log('ID de contacto:', formData.contactId)
+        console.log('ClientId en taskData:', taskData.clientId)
+        console.log('ProviderId en taskData:', taskData.providerId)
         const updatedTask = await updateTask(id, taskData)
-        console.log("Tarea actualizada recibida:", updatedTask)
+        console.log('Tarea actualizada recibida:', updatedTask)
         showSuccess("Tarea Actualizada", "La tarea ha sido actualizada exitosamente.")
       } else {
         // Crear nueva tarea
@@ -207,7 +230,7 @@ export default function TaskFormPage() {
       // Navegar después de un breve delay para que se vea el mensaje
       setTimeout(() => {
         if (isCreateMode) {
-          navigate("/dashboard/tasks")
+          navigate("/dashboard")
         } else {
           // Si estamos editando, volver al modo view
           setIsEditing(false)
@@ -223,7 +246,7 @@ export default function TaskFormPage() {
 
   const handleCancel = () => {
     if (isCreateMode) {
-      navigate("/dashboard/tasks")
+      navigate("/dashboard")
     } else if (isEditing) {
       // Si estamos editando, volver al modo view
       setIsEditing(false)
@@ -257,7 +280,7 @@ export default function TaskFormPage() {
       }
     } else {
       // Si estamos en modo view, volver a la lista
-      navigate("/dashboard/tasks")
+      navigate("/dashboard")
     }
   }
 
@@ -278,7 +301,7 @@ export default function TaskFormPage() {
           await deleteTask(id)
           showSuccess("Tarea Eliminada", `La tarea "${currentTask?.referenceNumber || ''}" ha sido eliminada exitosamente.`)
           setTimeout(() => {
-            navigate("/dashboard/tasks")
+            navigate("/dashboard")
           }, 1500)
         } catch (error) {
           console.error('Error deleting task:', error)
@@ -360,7 +383,7 @@ export default function TaskFormPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <p className="text-sm text-destructive">Error cargando la tarea: {taskError}</p>
-          <Button onClick={() => navigate("/dashboard/tasks")} className="mt-4">
+          <Button onClick={() => navigate("/dashboard")} className="mt-4">
             Volver a Tareas
           </Button>
         </div>
@@ -374,7 +397,7 @@ export default function TaskFormPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">Tarea no encontrada</p>
-          <Button onClick={() => navigate("/dashboard/tasks")} className="mt-4">
+          <Button onClick={() => navigate("/dashboard")} className="mt-4">
             Volver a Tareas
           </Button>
         </div>
@@ -391,7 +414,7 @@ export default function TaskFormPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/tasks")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver a Tareas
           </Button>

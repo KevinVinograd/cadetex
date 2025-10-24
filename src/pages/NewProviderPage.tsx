@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -10,12 +10,7 @@ import { SuccessDialog } from "../components/ui/success-dialog"
 import { 
   ArrowLeft, 
   Building2, 
-  Mail, 
-  Phone, 
-  MapPin, 
   Plus,
-  Save,
-  X,
   AlertCircle
 } from "lucide-react"
 
@@ -70,8 +65,7 @@ export default function NewProviderPage() {
         city: formData.city,
         province: formData.province,
         phoneNumber: formData.phoneNumber || undefined,
-        email: formData.email || undefined,
-        isActive: formData.isActive
+        email: formData.email || undefined
       })
 
       showSuccess("Proveedor Creado", "El proveedor ha sido creado exitosamente.")

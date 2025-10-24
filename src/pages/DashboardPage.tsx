@@ -5,11 +5,10 @@ import { Input } from "../components/ui/input"
 import { Badge } from "../components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { CornerLogout } from "../components/ui/corner-logout"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
 import { Alert, AlertDescription } from "../components/ui/alert"
-import { Plus, Search, Package, Clock, Download, Eye, Trash2, AlertCircle, PlayCircle, CheckCircle } from "lucide-react"
+import { Plus, Search, Package, Clock, Download, Eye, Trash2, AlertCircle, PlayCircle, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
@@ -49,19 +48,34 @@ export default function DashboardPage() {
     onConfirm: () => { }
   })
 
-  // Load tasks for the organization
+  // Load tasks for the organization when component mounts or organizationId changes
   useEffect(() => {
     const loadTasks = async () => {
+      console.log('Dashboard - useEffect triggered, organizationId:', organizationId)
       if (organizationId) {
         try {
-          await getTasksByOrganization(organizationId)
+          console.log('Dashboard - Loading tasks for organization:', organizationId)
+          const loadedTasks = await getTasksByOrganization(organizationId)
+          console.log('Dashboard - Tasks loaded successfully:', loadedTasks.length)
         } catch (error) {
           console.error('Error loading tasks:', error)
         }
+      } else {
+        console.log('Dashboard - No organizationId available')
       }
     }
     loadTasks()
   }, [organizationId, getTasksByOrganization])
+
+
+  // Debug effect to track tasks changes
+  useEffect(() => {
+    console.log('Dashboard - Tasks state changed:', {
+      tasksLength: tasks.length,
+      tasks: tasks.map(t => ({ id: t.id, status: t.status })),
+      cancelledCount: tasks.filter(t => t.status === 'CANCELLED').length
+    })
+  }, [tasks])
 
   // Filter tasks based on search and filters
   const filteredTasks = tasks.filter((task) => {
@@ -84,13 +98,85 @@ export default function DashboardPage() {
   const confirmedTasks = tasks.filter(task => task.status === "CONFIRMED").length
   const completedTasks = tasks.filter(task => task.status === "COMPLETED").length
 
+  // Debug logs
+  console.log('Dashboard - Render state:', {
+    tasksLength: tasks.length,
+    tasksLoading,
+    authLoading: isLoading,
+    organizationId,
+    shouldShowCards: !tasksLoading && tasks.length > 0,
+    totalTasks,
+    pendingTasks,
+    pendingConfirmationTasks,
+    confirmedTasks,
+    completedTasks
+  })
+
   const handleExportTasks = () => {
-    exportTasksToExcel(filteredTasks as any[])
+    exportTasksToExcel(sortedTasks as any[])
   }
 
   const handleExportAllTasks = () => {
     exportAllTasksToExcel(tasks as any[])
   }
+
+  // State for sorting
+  const [sortBy, setSortBy] = useState<string>("createdAt")
+  const [sortOrder, setSortOrder] = useState<string>("desc")
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortBy(field)
+      setSortOrder("desc")
+    }
+  }
+
+  const getSortIcon = (field: string) => {
+    if (sortBy !== field) {
+      return <ArrowUpDown className="h-4 w-4" />
+    }
+    return sortOrder === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+  }
+
+  // Apply sorting to filtered tasks
+  const sortedTasks = filteredTasks.sort((a, b) => {
+    let aValue: any
+    let bValue: any
+
+    switch (sortBy) {
+      case "createdAt":
+        aValue = new Date(a.createdAt).getTime()
+        bValue = new Date(b.createdAt).getTime()
+        break
+      case "scheduledDate":
+        aValue = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0
+        bValue = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0
+        break
+      case "referenceNumber":
+        aValue = a.referenceNumber || ""
+        bValue = b.referenceNumber || ""
+        break
+      case "status":
+        aValue = a.status
+        bValue = b.status
+        break
+      case "priority":
+        aValue = a.priority || "NORMAL"
+        bValue = b.priority || "NORMAL"
+        break
+      default:
+        aValue = new Date(a.createdAt).getTime()
+        bValue = new Date(b.createdAt).getTime()
+    }
+
+    if (sortOrder === "asc") {
+      return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
+    } else {
+      return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
+    }
+  })
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -182,7 +268,6 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <CornerLogout />
       
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -325,29 +410,70 @@ export default function DashboardPage() {
               </Select>
             </div>
 
+
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Referencia</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("referenceNumber")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Referencia
+                      {getSortIcon("referenceNumber")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("type")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Tipo
+                      {getSortIcon("type")}
+                    </div>
+                  </TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Proveedor</TableHead>
                   <TableHead>Cadete</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead>Programada</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("status")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Estado
+                      {getSortIcon("status")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("priority")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Prioridad
+                      {getSortIcon("priority")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("scheduledDate")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Programada
+                      {getSortIcon("scheduledDate")}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTasks.length === 0 ? (
+                {sortedTasks.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       {searchQuery ? "No se encontraron tareas con ese criterio" : "No hay tareas registradas"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTasks.map((task) => {
+                  sortedTasks.map((task) => {
                     const statusConfig = getStatusBadge(task.status)
                     const priorityConfig = getPriorityBadge(task.priority)
                     
