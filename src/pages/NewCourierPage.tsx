@@ -41,7 +41,7 @@ export default function NewCourierPage() {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      console.log("New courier created:", formData)
+      
       
       alert("Courier creado exitosamente!")
       navigate("/dashboard/couriers")

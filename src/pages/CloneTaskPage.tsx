@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
@@ -12,10 +12,28 @@ import {
   Save,
   X
 } from "lucide-react"
+import { useClients } from "../hooks/use-clients"
+import { useProviders } from "../hooks/use-providers"
+import { useCouriers } from "../hooks/use-couriers"
+import { SuccessDialog } from "../components/ui/success-dialog"
+import { useTasks } from "../hooks/use-tasks"
+import { useAuth } from "../hooks/use-auth"
 
 export default function CloneTaskPage() {
   const navigate = useNavigate()
+  const { id } = useParams()
+  const { getTaskById, currentTask, createTask } = useTasks()
+  const { organizationId } = useAuth()
+  const { clients } = useClients()
+  const { providers } = useProviders()
+  const { couriers } = useCouriers()
   const [isSaving, setIsSaving] = useState(false)
+  const [successDialog, setSuccessDialog] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  }>({ isOpen: false, title: '', description: '', type: 'success' })
   const [formData, setFormData] = useState({
     referenceBL: "",
     contactType: "client",
@@ -31,93 +49,181 @@ export default function CloneTaskPage() {
     priority: "normal",
     mbl: "",
     hbl: "",
-    freightCertificate: "",
-    foCertificate: "",
-    bunkerCertificate: ""
+    freightCert: false,
+    foCert: false,
+    bunkerCert: false
   })
 
-  // Load cloned task data from localStorage
-  useEffect(() => {
-    const clonedTaskData = localStorage.getItem('clonedTask')
-    if (clonedTaskData) {
-      const clonedTask = JSON.parse(clonedTaskData)
+  const prefillFromTask = (rawTask: any) => {
+    if (!rawTask) return
+    const clonedTask = rawTask
+
+      // Normalize type from backend enums if needed
+      const derivedType: 'entrega' | 'retiro' = clonedTask.type === 'DELIVER' ? 'entrega' : clonedTask.type === 'RETIRE' ? 'retiro' : (clonedTask.type || 'entrega')
+
+    // Normalize status from backend to form values
+    const mapStatus = (s?: string) => {
+      if (!s) return 'en_preparacion'
+      const upper = String(s).toUpperCase()
+      const map: Record<string, string> = {
+        PENDING: 'en_preparacion',
+        PENDING_CONFIRMATION: 'pendiente_confirmar',
+        CONFIRMED: 'confirmada_tomar',
+        COMPLETED: 'finalizada',
+        CANCELLED: 'cancelada',
+      }
+      return map[upper] || s
+    }
+
+    // Normalize priority
+    const mapPriority = (p?: string) => {
+      if (!p) return 'normal'
+      const upper = String(p).toUpperCase()
+      const map: Record<string, string> = {
+        NORMAL: 'normal',
+        URGENT: 'urgente',
+        HIGH: 'alta',
+        LOW: 'baja',
+      }
+      return map[upper] || String(p).toLowerCase()
+    }
       
       // Determine contact type and load appropriate data
       let contactType = "client"
       let contactId = ""
-      let address = ""
-      let city = ""
-      let contact = ""
+      // Prefer original task addresses/contacts; fallback to contact book
+      let address: string = ""
+      let city: string = ""
+      let contact: string = ""
       
-      if (clonedTask.clientId) {
+    if (clonedTask.clientId) {
         contactType = "client"
-        contactId = clonedTask.clientId
-        const client = mockClients.find(c => c.id === clonedTask.clientId)
-        if (client) {
-          address = client.address
-          city = client.city
-          contact = client.contact || ""
-        }
-      } else if (clonedTask.providerId) {
+      contactId = String(clonedTask.clientId)
+        // Fallbacks from contact card (real data)
+        const client = clients?.find(c => String(c.id) === String(clonedTask.clientId))
+        const clientAddress = client?.address || ""
+        const clientCity = client?.city || ""
+        const clientContact = (client as any)?.contact || ""
+        // Use original task fields if available; otherwise fallback to contact card
+        address = derivedType === 'entrega'
+          ? (clonedTask.deliveryAddress || clonedTask.addressOverride || clientAddress)
+          : (clonedTask.pickupAddress || clonedTask.addressOverride || clientAddress)
+        city = derivedType === 'entrega' ? (clonedTask.deliveryCity || clientCity) : (clonedTask.pickupCity || clientCity)
+        contact = derivedType === 'entrega' ? (clonedTask.deliveryContact || clientContact) : (clonedTask.pickupContact || clientContact)
+        if (!contact) contact = clonedTask.clientName || contact
+    } else if (clonedTask.providerId) {
         contactType = "provider"
-        contactId = clonedTask.providerId
-        const provider = mockProviders.find(p => p.id === clonedTask.providerId)
-        if (provider) {
-          address = provider.address
-          city = provider.city
-          contact = provider.contact || ""
-        }
+      contactId = String(clonedTask.providerId)
+        // Fallbacks from contact card (real data)
+        const provider = providers?.find(p => String(p.id) === String(clonedTask.providerId))
+        const providerAddress = provider?.address || ""
+        const providerCity = provider?.city || ""
+        const providerContact = (provider as any)?.contact || ""
+        // Use original task fields if available; otherwise fallback to contact card
+        address = derivedType === 'entrega'
+          ? (clonedTask.deliveryAddress || clonedTask.addressOverride || providerAddress)
+          : (clonedTask.pickupAddress || clonedTask.addressOverride || providerAddress)
+        city = derivedType === 'entrega' ? (clonedTask.deliveryCity || providerCity) : (clonedTask.pickupCity || providerCity)
+        contact = derivedType === 'entrega' ? (clonedTask.deliveryContact || providerContact) : (clonedTask.pickupContact || providerContact)
+        if (!contact) contact = clonedTask.providerName || contact
       }
       
       setFormData({
-        referenceBL: clonedTask.referenceBL,
+        referenceBL: clonedTask.referenceBL || clonedTask.referenceNumber || "",
         contactType,
         contactId,
-        type: clonedTask.type,
-        status: clonedTask.status,
-        scheduledDate: new Date(clonedTask.scheduledDate).toISOString().split('T')[0],
+        type: derivedType,
+        status: mapStatus(clonedTask.status),
+        scheduledDate: clonedTask.scheduledDate
+          ? (String(clonedTask.scheduledDate).includes('T')
+              ? new Date(clonedTask.scheduledDate).toISOString().split('T')[0]
+              : String(clonedTask.scheduledDate))
+          : "",
+        // Also copy time if present
+        // @ts-expect-error optional from payload
+        scheduledTime: clonedTask.scheduledTime || clonedTask.scheduled_time || (clonedTask.scheduledDate && String(clonedTask.scheduledDate).includes('T') ? new Date(clonedTask.scheduledDate).toISOString().split('T')[1]?.slice(0,5) : ""),
         address,
         city,
         contact,
         courierId: clonedTask.courierId || "unassigned",
         notes: clonedTask.notes || "",
-        priority: clonedTask.priority || "normal",
-        mbl: clonedTask.mbl || "",
-        hbl: clonedTask.hbl || "",
-        freightCertificate: clonedTask.freightCertificate || "",
-        foCertificate: clonedTask.foCertificate || "",
-        bunkerCertificate: clonedTask.bunkerCertificate || ""
+        priority: mapPriority(clonedTask.priority),
+        mbl: clonedTask.mbl || clonedTask.MBL || clonedTask.mblNumber || "",
+        hbl: clonedTask.hbl || clonedTask.HBL || clonedTask.hblNumber || "",
+        freightCert: Boolean(clonedTask.freightCert || clonedTask.freightCertificate || clonedTask.freight_certificate),
+        foCert: Boolean(clonedTask.foCert || clonedTask.foCertificate || clonedTask.fo_certificate),
+        bunkerCert: Boolean(clonedTask.bunkerCert || clonedTask.bunkerCertificate || clonedTask.bunker_certificate)
       })
+  }
+
+  // Load cloned task data from localStorage, or fallback to fetching by :id
+  useEffect(() => {
+    const clonedTaskData = localStorage.getItem('clonedTask')
+    if (clonedTaskData) {
+      prefillFromTask(JSON.parse(clonedTaskData))
+      return
+    }
+    if (id) {
+      // Try to load from server/state
+      getTaskById(id).catch(() => {})
     }
   }, [])
 
-  const handleInputChange = (field: string, value: string) => {
+  // When currentTask arrives (fallback path), prefill once
+  useEffect(() => {
+    if (currentTask) {
+      prefillFromTask(currentTask)
+    }
+  }, [currentTask])
+
+  // Auto-llenar dirección cuando llegan clientes/proveedores y falta address
+  useEffect(() => {
+    if (!formData.address && formData.contactId) {
+      const contact = formData.contactType === 'client'
+        ? (clients || []).find(c => String(c.id) === String(formData.contactId))
+        : (providers || []).find(p => String(p.id) === String(formData.contactId))
+      if (contact) {
+        setFormData(prev => ({
+          ...prev,
+          address: (contact as any).address || '',
+          city: (contact as any).city || '',
+          contact: (contact as any).phoneNumber || (contact as any).contact || ''
+        }))
+      }
+    }
+  }, [clients, providers])
+
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   const handleClientChange = (clientId: string) => {
-    const client = mockClients.find(c => c.id === clientId)
+    const client = (clients || []).find(c => String(c.id) === String(clientId))
     if (client) {
       setFormData(prev => ({
         ...prev,
-        contactId: clientId,
-        address: client.address,
-        city: client.city,
-        contact: client.contact || ""
+        contactId: String(clientId),
+        address: (client as any).address || "",
+        city: (client as any).city || "",
+        contact: (client as any).phoneNumber || (client as any).contact || ""
       }))
+    } else {
+      setFormData(prev => ({ ...prev, contactId: String(clientId) }))
     }
   }
 
   const handleProviderChange = (providerId: string) => {
-    const provider = mockProviders.find(p => p.id === providerId)
+    const provider = (providers || []).find(p => String(p.id) === String(providerId))
     if (provider) {
       setFormData(prev => ({
         ...prev,
-        contactId: providerId,
-        address: provider.address,
-        city: provider.city,
-        contact: provider.contact || ""
+        contactId: String(providerId),
+        address: (provider as any).address || "",
+        city: (provider as any).city || "",
+        contact: (provider as any).phoneNumber || (provider as any).contact || ""
       }))
+    } else {
+      setFormData(prev => ({ ...prev, contactId: String(providerId) }))
     }
   }
 
@@ -126,46 +232,59 @@ export default function CloneTaskPage() {
     setIsSaving(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Convert form data to backend format
-      const newTask = {
-        id: `task-${Date.now()}`,
-        referenceBL: formData.referenceBL,
-        clientId: formData.contactType === "client" ? formData.contactId : "",
-        providerId: formData.contactType === "provider" ? formData.contactId : "",
-        type: formData.type,
-        status: formData.status,
+      // Minimal validation
+      if (!organizationId) throw new Error('Organización no disponible')
+      if (!formData.referenceBL?.trim()) throw new Error('Referencia requerida')
+      if (!formData.scheduledDate) throw new Error('Fecha requerida')
+      if (!formData.address?.trim()) throw new Error('Dirección requerida')
+      if (!formData.contactId) throw new Error('Contacto requerido')
+
+      // Map form -> backend
+      const mapType = (t: string) => (t === 'retiro' ? 'RETIRE' : 'DELIVER')
+      const mapPriority = (p: string) => (p === 'urgente' || p === 'alta' ? 'URGENT' : 'NORMAL')
+      const referenceNumber = formData.referenceBL
+      const clientId = formData.contactType === 'client' ? formData.contactId : undefined
+      const providerId = formData.contactType === 'provider' ? formData.contactId : undefined
+      const addressOverride = formData.address
+      const city = formData.city || undefined
+      const courierId = formData.courierId === 'unassigned' ? undefined : formData.courierId
+
+      await createTask({
+        organizationId,
+        type: mapType(formData.type) as any,
+        referenceNumber,
+        clientId,
+        providerId,
+        addressOverride,
+        priority: mapPriority(formData.priority) as any,
         scheduledDate: formData.scheduledDate,
-        pickupAddress: formData.type === "retiro" ? formData.address : "",
-        pickupCity: formData.type === "retiro" ? formData.city : "",
-        pickupContact: formData.type === "retiro" ? formData.contact : "",
-        deliveryAddress: formData.type === "entrega" ? formData.address : "",
-        deliveryCity: formData.type === "entrega" ? formData.city : "",
-        deliveryContact: formData.type === "entrega" ? formData.contact : "",
-        courierId: formData.courierId === "unassigned" ? "" : formData.courierId,
-        notes: formData.notes,
-        priority: formData.priority,
-        mbl: formData.mbl,
-        hbl: formData.hbl,
-        freightCertificate: formData.freightCertificate,
-        foCertificate: formData.foCertificate,
-        bunkerCertificate: formData.bunkerCertificate,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-      
-      console.log("New cloned task created:", newTask)
-      
+        notes: formData.notes || undefined,
+        mbl: formData.mbl || undefined,
+        hbl: formData.hbl || undefined,
+        freightCert: Boolean(formData.freightCert),
+        foCert: Boolean(formData.foCert),
+        bunkerCert: Boolean(formData.bunkerCert),
+        linkedTaskId: id || undefined,
+      })
+
       // Clear localStorage
       localStorage.removeItem('clonedTask')
       
-      alert("Tarea clonada exitosamente!")
-      navigate("/dashboard")
+      setSuccessDialog({
+        isOpen: true,
+        title: "Tarea Clonada",
+        description: "La tarea se ha creado exitosamente a partir de la original.",
+        type: 'success'
+      })
+      setTimeout(() => navigate("/dashboard"), 1200)
     } catch (error) {
       console.error('Error creating cloned task:', error)
-      alert('Error creando la tarea clonada. Intenta de nuevo.')
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error creando la tarea clonada. Intenta de nuevo.",
+        type: 'error'
+      })
     } finally {
       setIsSaving(false)
     }
@@ -302,7 +421,9 @@ export default function CloneTaskPage() {
               <CardContent className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Tipo de Contacto *</label>
-                  <Select value={formData.contactType} onValueChange={(value) => handleInputChange("contactType", value)}>
+                  <Select value={formData.contactType} onValueChange={(value) => {
+                    setFormData(prev => ({ ...prev, contactType: value, contactId: "" }))
+                  }}>
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -330,21 +451,21 @@ export default function CloneTaskPage() {
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder={`Selecciona un ${formData.contactType === "client" ? "cliente" : "proveedor"}`} />
                     </SelectTrigger>
-                    <SelectContent>
-                      {formData.contactType === "client" ? (
-                        mockClients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        mockProviders.map((provider) => (
-                          <SelectItem key={provider.id} value={provider.id}>
-                            {provider.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
+                <SelectContent>
+                  {formData.contactType === "client" ? (
+                    (clients || []).map((client: any) => (
+                      <SelectItem key={String(client.id)} value={String(client.id)}>
+                        {client.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    (providers || []).map((provider: any) => (
+                      <SelectItem key={String(provider.id)} value={String(provider.id)}>
+                        {provider.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
                   </Select>
                 </div>
               </CardContent>
@@ -366,7 +487,32 @@ export default function CloneTaskPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Dirección *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-muted-foreground">Dirección *</label>
+                    {formData.contactId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const contact = formData.contactType === "client"
+                            ? (clients || []).find(c => String(c.id) === String(formData.contactId))
+                            : (providers || []).find(p => String(p.id) === String(formData.contactId))
+                          if (contact) {
+                            setFormData(prev => ({
+                              ...prev,
+                              address: (contact as any).address || "",
+                              city: (contact as any).city || "",
+                              contact: (contact as any).phoneNumber || (contact as any).contact || ""
+                            }))
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        Usar dirección del contacto
+                      </Button>
+                    )}
+                  </div>
                   <Textarea
                     value={formData.address}
                     onChange={(e) => handleInputChange("address", e.target.value)}
@@ -423,29 +569,17 @@ export default function CloneTaskPage() {
                       className="mt-1"
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Freight Certificate</label>
-                    <Input
-                      value={formData.freightCertificate}
-                      onChange={(e) => handleInputChange("freightCertificate", e.target.value)}
-                      className="mt-1"
-                    />
+                  <div className="flex items-center space-x-2">
+                    <input id="freightCert" type="checkbox" className="h-4 w-4" checked={formData.freightCert} onChange={(e) => handleInputChange("freightCert", e.target.checked)} />
+                    <label htmlFor="freightCert" className="text-sm">Certificado de Flete</label>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">FO Certificate</label>
-                    <Input
-                      value={formData.foCertificate}
-                      onChange={(e) => handleInputChange("foCertificate", e.target.value)}
-                      className="mt-1"
-                    />
+                  <div className="flex items-center space-x-2">
+                    <input id="foCert" type="checkbox" className="h-4 w-4" checked={formData.foCert} onChange={(e) => handleInputChange("foCert", e.target.checked)} />
+                    <label htmlFor="foCert" className="text-sm">Certificado FO</label>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Bunker Certificate</label>
-                    <Input
-                      value={formData.bunkerCertificate}
-                      onChange={(e) => handleInputChange("bunkerCertificate", e.target.value)}
-                      className="mt-1"
-                    />
+                  <div className="flex items-center space-x-2">
+                    <input id="bunkerCert" type="checkbox" className="h-4 w-4" checked={formData.bunkerCert} onChange={(e) => handleInputChange("bunkerCert", e.target.checked)} />
+                    <label htmlFor="bunkerCert" className="text-sm">Certificado de Combustible</label>
                   </div>
                 </div>
               </CardContent>
@@ -484,8 +618,8 @@ export default function CloneTaskPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Sin asignar</SelectItem>
-                    {mockCouriers.map((courier) => (
-                      <SelectItem key={courier.id} value={courier.id}>
+                    {(couriers || []).map((courier: any) => (
+                      <SelectItem key={String(courier.id)} value={String(courier.id)}>
                         {courier.name} - {courier.phoneNumber}
                       </SelectItem>
                     ))}
@@ -518,12 +652,12 @@ export default function CloneTaskPage() {
                   </p>
                   {formData.contactType === "client" && (
                     <p className="text-sm text-muted-foreground">
-                      Cliente: {mockClients.find(c => c.id === formData.contactId)?.name || "No seleccionado"}
+                      Cliente: {(clients || []).find((c: any) => String(c.id) === String(formData.contactId))?.name || "No seleccionado"}
                     </p>
                   )}
                   {formData.contactType === "provider" && (
                     <p className="text-sm text-muted-foreground">
-                      Proveedor: {mockProviders.find(p => p.id === formData.contactId)?.name || "No seleccionado"}
+                      Proveedor: {(providers || []).find((p: any) => String(p.id) === String(formData.contactId))?.name || "No seleccionado"}
                     </p>
                   )}
                 </div>
@@ -532,6 +666,13 @@ export default function CloneTaskPage() {
           </div>
         </div>
       </form>
+      <SuccessDialog
+        isOpen={successDialog.isOpen}
+        onClose={() => setSuccessDialog(prev => ({ ...prev, isOpen: false }))}
+        title={successDialog.title}
+        description={successDialog.description}
+        type={successDialog.type}
+      />
     </div>
   )
 }

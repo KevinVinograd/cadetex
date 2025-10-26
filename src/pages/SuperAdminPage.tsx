@@ -45,13 +45,10 @@ export default function SuperAdminPage() {
     onConfirm: () => { }
   })
 
-  console.log("SuperAdminPage - role:", role)
-  console.log("SuperAdminPage - organizations:", organizations)
-  console.log("SuperAdminPage - isLoading:", isLoading)
+  // debug logs removed
 
   useEffect(() => {
     if (role !== "superadmin") {
-      console.log("SuperAdminPage - Redirecting to login, role:", role)
       navigate("/login")
     }
   }, [role, navigate])
@@ -105,9 +102,9 @@ export default function SuperAdminPage() {
       "¿Estás seguro de que quieres eliminar esta organización? Esta acción eliminará también todos los administradores asociados.",
       async () => {
         try {
-          console.log("Deleting organization with id:", id)
+          
           await deleteOrganization(id)
-          console.log("Organization deleted successfully")
+          
           showSuccess("Organización Eliminada", "La organización ha sido eliminada exitosamente.")
           // Recargar la lista para asegurar que se actualice
           setTimeout(() => window.location.reload(), 1500)

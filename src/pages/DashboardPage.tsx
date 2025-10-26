@@ -51,30 +51,23 @@ export default function DashboardPage() {
   // Load tasks for the organization when component mounts or organizationId changes
   useEffect(() => {
     const loadTasks = async () => {
-      console.log('Dashboard - useEffect triggered, organizationId:', organizationId)
       if (organizationId) {
         try {
-          console.log('Dashboard - Loading tasks for organization:', organizationId)
-          const loadedTasks = await getTasksByOrganization(organizationId)
-          console.log('Dashboard - Tasks loaded successfully:', loadedTasks.length)
+          await getTasksByOrganization(organizationId)
         } catch (error) {
           console.error('Error loading tasks:', error)
         }
       } else {
-        console.log('Dashboard - No organizationId available')
+        // no org id
       }
     }
     loadTasks()
   }, [organizationId, getTasksByOrganization])
 
 
-  // Debug effect to track tasks changes
+  // Debug effect removed
   useEffect(() => {
-    console.log('Dashboard - Tasks state changed:', {
-      tasksLength: tasks.length,
-      tasks: tasks.map(t => ({ id: t.id, status: t.status })),
-      cancelledCount: tasks.filter(t => t.status === 'CANCELLED').length
-    })
+    // no-op
   }, [tasks])
 
   // Filter tasks based on search and filters
@@ -98,19 +91,7 @@ export default function DashboardPage() {
   const confirmedTasks = tasks.filter(task => task.status === "CONFIRMED").length
   const completedTasks = tasks.filter(task => task.status === "COMPLETED").length
 
-  // Debug logs
-  console.log('Dashboard - Render state:', {
-    tasksLength: tasks.length,
-    tasksLoading,
-    authLoading: isLoading,
-    organizationId,
-    shouldShowCards: !tasksLoading && tasks.length > 0,
-    totalTasks,
-    pendingTasks,
-    pendingConfirmationTasks,
-    confirmedTasks,
-    completedTasks
-  })
+  // Debug logs removed
 
   const handleExportTasks = () => {
     exportTasksToExcel(sortedTasks as any[])

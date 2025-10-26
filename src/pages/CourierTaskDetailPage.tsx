@@ -7,6 +7,23 @@ import { Textarea } from "../components/ui/textarea"
 import { Label } from "../components/ui/label"
 import { Input } from "../components/ui/input"
 import { useTasks } from "../hooks/use-tasks"
+
+// Helper function to format dates consistently
+const formatDate = (dateString: string | undefined, options?: Intl.DateTimeFormatOptions): string => {
+  if (!dateString) return "No programada"
+  
+  let date: Date
+  if (dateString.includes('T') || dateString.includes('Z')) {
+    // Full ISO date
+    date = new Date(dateString)
+  } else {
+    // YYYY-MM-DD format - add time to avoid timezone issues
+    date = new Date(dateString + 'T00:00:00')
+  }
+  
+  return date.toLocaleDateString('es-ES', options)
+}
+
 import { 
   ArrowLeft, 
   Package, 
@@ -20,7 +37,9 @@ import {
   Navigation,
   Play,
   Save,
-  MessageSquare
+  MessageSquare,
+  Download,
+  Image as ImageIcon
 } from "lucide-react"
 
 export default function CourierTaskDetailPage() {
@@ -39,20 +58,44 @@ export default function CourierTaskDetailPage() {
       getTaskById(id)
     }
   }, [id, getTaskById, currentTask])
+
+  // Refresh task when component becomes visible (user returns to this page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && id) {
+        getTaskById(id)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [id, getTaskById])
   
   // Get the relevant address based on task type
   const getTaskAddress = () => {
-    return task?.type === "retiro" ? task.pickupAddress : task?.deliveryAddress
+    return task?.addressOverride || "Sin dirección especificada"
   }
   
   // Get the relevant contact based on task type
   const getTaskContact = () => {
-    return task?.type === "retiro" ? task.pickupContact : task?.deliveryContact
+    return task?.contact || "Sin contacto especificado"
   }
   
   // Get the relevant city based on task type
   const getTaskCity = () => {
-    return task?.type === "retiro" ? task.pickupCity : task?.deliveryCity
+    return task?.city || "Sin ciudad especificada"
+  }
+
+  // Function to download the receipt photo
+  const handleDownloadPhoto = () => {
+    if (task?.receiptPhotoUrl) {
+      const link = document.createElement('a')
+      link.href = task.receiptPhotoUrl
+      link.download = `comprobante-${task.referenceNumber || task.id}.jpg`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
   }
   
   // Show loading state
@@ -134,8 +177,6 @@ export default function CourierTaskDetailPage() {
 
   const handleStatusUpdate = async (newStatus: string) => {
     setIsUpdating(true)
-    // Here you would typically update the task status in your backend
-    console.log(`Updating task ${task.id} to status: ${newStatus}`)
     
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -145,8 +186,6 @@ export default function CourierTaskDetailPage() {
 
   const handleNotesUpdate = async () => {
     setIsUpdating(true)
-    // Here you would typically update the task notes in your backend
-    console.log(`Updating task ${task.id} notes:`, notes)
     
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -171,45 +210,8 @@ export default function CourierTaskDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Task Information */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Basic Information */}
-          <Card className="border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Task Information
-              </CardTitle>
-              <CardDescription>Details about your assigned task</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Reference BL</label>
-                  <p className="text-lg font-semibold">{task.referenceBL}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Task Type</label>
-                  <div className="mt-1">{getTypeBadge(task.type)}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Priority</label>
-                  <div className="mt-1">{getPriorityBadge(task.priority || "normal")}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Status</label>
-                  <div className="mt-1">{getStatusBadge(task.status)}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Fecha Programada</label>
-                  <p className="text-sm">{task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : "No programada"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Addresses */}
+      <div className="max-w-4xl mx-auto space-y-6">
+          {/* Address - Most Important */}
           <Card className="border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -227,72 +229,96 @@ export default function CourierTaskDetailPage() {
                 </label>
                 <div className="mt-1 p-3 bg-muted rounded-md">
                   <p className="text-sm font-medium">{getTaskAddress()}</p>
-                  {getTaskCity() && (
-                    <p className="text-xs text-muted-foreground mt-1">{getTaskCity()}</p>
+                  {(getTaskCity() || task.province) && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {[getTaskCity(), task.province].filter(Boolean).join(', ')}
+                    </p>
                   )}
                   {getTaskContact() && (
-                    <p className="text-xs text-muted-foreground mt-1">{getTaskContact()}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{getTaskContact()}</p>
                   )}
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="mt-2"
-                    onClick={() => {
-                      const address = getTaskAddress()
-                      if (address) {
-                        const encodedAddress = encodeURIComponent(address)
-                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank')
-                      }
-                    }}
-                  >
-                    <Navigation className="h-4 w-4 mr-2" />
-                    Ir a Dirección
-                  </Button>
                 </div>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const address = `${getTaskAddress()}, ${getTaskCity()}, ${task.province}`
+                    window.open(`https://maps.google.com/maps?q=${encodeURIComponent(address)}`, '_blank')
+                  }}
+                  className="flex-1"
+                >
+                  <Navigation className="h-4 w-4 mr-2" />
+                  Ir a Dirección
+                </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Client Information */}
+          {/* Task Overview - Unified Information */}
           <Card className="border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Client Information
+                <Package className="h-5 w-5" />
+                Información de la Tarea
               </CardTitle>
-              <CardDescription>Contact details for this delivery</CardDescription>
             </CardHeader>
-            <CardContent>
-              {client ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Client Name</label>
-                    <p className="text-sm font-semibold">{client.name}</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {client.email && (
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{client.email}</span>
-                      </div>
-                    )}
-                    {client.phone && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{client.phone}</span>
-                      </div>
-                    )}
-                  </div>
-                  {client.address && (
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <span className="text-sm">{client.address}</span>
-                    </div>
-                  )}
+            <CardContent className="space-y-4">
+              {/* Status and Priority Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(task.status)}
+                  {getPriorityBadge(task.priority || "normal")}
                 </div>
-              ) : (
-                <p className="text-muted-foreground">Client information not available</p>
-              )}
+                <div className="text-right">
+                  <p className="text-sm font-medium">{task.referenceBL}</p>
+                  <p className="text-xs text-muted-foreground">{task.type === "retiro" ? "Retiro" : "Entrega"}</p>
+                </div>
+              </div>
+
+              {/* Date and Contact Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Fecha Programada</label>
+                  <p className="text-sm font-medium">
+                    {formatDate(task.scheduledDate, {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short'
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Contacto</label>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">{getTaskContact()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Actions */}
+              <div className="pt-4 border-t">
+                {canStartTask && (
+                  <Button 
+                    className="w-full mb-2" 
+                    onClick={() => handleStatusUpdate("confirmada_tomar")}
+                    disabled={isUpdating}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    {isUpdating ? "Iniciando..." : "Iniciar Tarea"}
+                  </Button>
+                )}
+                
+                {isTaskCompleted && (
+                  <div className="text-center py-4">
+                    <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-green-600">Tarea Finalizada</p>
+                    <p className="text-xs text-muted-foreground">¡Excelente trabajo!</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -326,94 +352,42 @@ export default function CourierTaskDetailPage() {
               </Button>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Status Actions */}
-          <Card className="border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Estado de la Tarea
-              </CardTitle>
-              <CardDescription>Información actual del estado</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Estado Actual</label>
-                <div className="mt-1">{getStatusBadge(task.status)}</div>
-              </div>
-              
-              {canStartTask && (
-                <Button 
-                  className="w-full" 
-                  onClick={() => handleStatusUpdate("confirmada_tomar")}
-                  disabled={isUpdating}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  {isUpdating ? "Iniciando..." : "Iniciar Tarea"}
-                </Button>
-              )}
-              
-              {isTaskCompleted && (
-                <div className="text-center py-4">
-                  <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-green-600">Tarea Finalizada</p>
-                  <p className="text-xs text-muted-foreground">¡Excelente trabajo!</p>
+          {/* Receipt Photo - At the bottom */}
+          {task.receiptPhotoUrl && (
+            <Card className="border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5" />
+                  Comprobante de Entrega
+                </CardTitle>
+                <CardDescription>
+                  Foto subida por el courier como comprobante
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="relative">
+                  <img
+                    src={task.receiptPhotoUrl}
+                    alt="Comprobante de entrega"
+                    className="w-full max-w-md mx-auto rounded-lg border shadow-sm"
+                    style={{ maxHeight: '400px', objectFit: 'cover' }}
+                  />
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card className="border">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common tasks and shortcuts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full" size="sm">
-                <Phone className="h-4 w-4 mr-2" />
-                Call Client
-              </Button>
-              <Button variant="outline" className="w-full" size="sm">
-                <Navigation className="h-4 w-4 mr-2" />
-                Open in Maps
-              </Button>
-              <Button variant="outline" className="w-full" size="sm">
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Send Message
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Task Summary */}
-          <Card className="border">
-            <CardHeader>
-              <CardTitle>Task Summary</CardTitle>
-              <CardDescription>Quick overview</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Reference:</span>
-                <span className="font-medium">{task.referenceBL}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Type:</span>
-                <span className="font-medium capitalize">{task.type}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Priority:</span>
-                <span className="font-medium capitalize">{task.priority || "normal"}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Scheduled:</span>
-                <span className="font-medium">{task.scheduledDate ? new Date(task.scheduledDate).toLocaleDateString() : "No programada"}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleDownloadPhoto}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Descargar Foto
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
       </div>
     </div>
   )

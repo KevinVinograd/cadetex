@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Label } from "../components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
 import {
@@ -20,16 +21,32 @@ import {
   Building2,
   User,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Plus,
+  Clock,
+  X
 } from "lucide-react"
+import { SuccessDialog } from "../components/ui/success-dialog"
 
 type TaskStatus = "PENDING" | "PENDING_CONFIRMATION" | "CONFIRMED" | "COMPLETED" | "CANCELLED"
 
 export default function CourierTasksPage() {
-  const { role } = useAuth()
-  const { tasks, isLoading, error, getTasksByCourier, updateTaskStatus } = useTasks()
+  const { role, organizationId } = useAuth()
+  const { 
+    tasks, 
+    isLoading, 
+    error, 
+    getTasksByCourier, 
+    updateTaskStatus, 
+    getUnassignedTasks, 
+    assignTaskToCourier,
+    unassignTaskFromCourier,
+    uploadTaskPhoto
+  } = useTasks()
 
-
+  const [activeTab, setActiveTab] = useState("assigned")
+  const [unassignedTasks, setUnassignedTasks] = useState<any[]>([])
+  const [isLoadingUnassigned, setIsLoadingUnassigned] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
@@ -40,6 +57,14 @@ export default function CourierTasksPage() {
   const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null)
   const [additionalPhoto, setAdditionalPhoto] = useState<string | null>(null)
   const [isFinalizing, setIsFinalizing] = useState(false)
+  const [isAssigning, setIsAssigning] = useState(false)
+  const [isUnassigning, setIsUnassigning] = useState(false)
+  const [successDialog, setSuccessDialog] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    type: 'success' | 'error' | 'warning' | 'info'
+  }>({ isOpen: false, title: '', description: '', type: 'success' })
 
   // Get courier ID from the authenticated user
   // For now, we'll use the hardcoded courier ID from the database
@@ -69,15 +94,28 @@ export default function CourierTasksPage() {
     }
   }, [courierId])
 
+  // Fetch unassigned tasks when component loads and when switching to that tab
+  useEffect(() => {
+    const fetchUnassignedTasks = async () => {
+      if (organizationId && unassignedTasks.length === 0) {
+        try {
+          setIsLoadingUnassigned(true)
+          const tasks = await getUnassignedTasks(organizationId)
+          setUnassignedTasks(tasks)
+        } catch (err) {
+          console.error('Error fetching unassigned tasks:', err)
+        } finally {
+          setIsLoadingUnassigned(false)
+        }
+      }
+    }
+
+    fetchUnassignedTasks()
+  }, [organizationId, getUnassignedTasks, unassignedTasks.length])
+
   // Force re-render when tasks change
   useEffect(() => {
-    // This effect will run whenever tasks change, ensuring the UI updates
-    console.log('CourierTasksPage - Tareas actualizadas:', tasks)
-    console.log('CourierTasksPage - Fechas programadas:', tasks.map(t => ({ 
-      id: t.id, 
-      scheduledDate: t.scheduledDate,
-      parsedDate: t.scheduledDate ? new Date(t.scheduledDate) : null
-    })))
+    // no-op
   }, [tasks])
 
   const filteredTasks = tasks.filter((task) => {
@@ -137,7 +175,7 @@ export default function CourierTasksPage() {
             })
           }
         } catch (error) {
-          console.warn('Error parsing date:', task.scheduledDate, error)
+          // keep silent in production/tests
           dateKey = 'Fecha inválida'
         }
       }
@@ -298,7 +336,7 @@ export default function CourierTasksPage() {
 
   // Get the relevant contact based on task type
   const getTaskContact = (task: any) => {
-    return task.clientName || task.providerName || "Sin contacto especificado"
+    return task.contact || "Sin contacto especificado"
   }
 
   const handleFinalizeTask = (task: any) => {
@@ -313,18 +351,105 @@ export default function CourierTasksPage() {
 
     setIsFinalizing(true)
     try {
+      // If there's a photo, upload it first
+      if (receiptPhoto) {
+        // Convert base64 to File
+        const response = await fetch(receiptPhoto)
+        const blob = await response.blob()
+        const file = new File([blob], 'receipt.jpg', { type: 'image/jpeg' })
+        
+        // Upload the photo (the hook will create FormData internally)
+        await uploadTaskPhoto(selectedTask.id, file)
+      }
+
       // Update task status to COMPLETED
       await updateTaskStatus(selectedTask.id, "COMPLETED")
 
-      // Task status will be updated by the hook automatically
+      // Refresh tasks to get updated data including the photo
+      if (courierId) {
+        await getTasksByCourier(courierId)
+      }
 
       setShowFinalizeModal(false)
-      alert("¡Tarea finalizada exitosamente!")
+      setSuccessDialog({
+        isOpen: true,
+        title: "Tarea Finalizada",
+        description: "¡La tarea se ha finalizado exitosamente!",
+        type: 'success'
+      })
     } catch (error) {
       console.error("Error finalizing task:", error)
-      alert("Error al finalizar la tarea")
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "Error al finalizar la tarea",
+        type: 'error'
+      })
     } finally {
       setIsFinalizing(false)
+    }
+  }
+
+  const handleAssignTask = async (taskId: string) => {
+    setIsAssigning(true)
+    try {
+      await assignTaskToCourier(taskId, courierId)
+      
+      // Remove from unassigned tasks
+      setUnassignedTasks(prev => prev.filter(task => task.id !== taskId))
+      
+      // Refresh assigned tasks
+      await getTasksByCourier(courierId)
+      
+      setSuccessDialog({
+        isOpen: true,
+        title: "Tarea Asignada",
+        description: "¡La tarea se ha asignado exitosamente!",
+        type: 'success'
+      })
+    } catch (error) {
+      console.error("Error assigning task:", error)
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "Error al asignar la tarea",
+        type: 'error'
+      })
+    } finally {
+      setIsAssigning(false)
+    }
+  }
+
+  const handleUnassignTask = async (taskId: string) => {
+    setIsUnassigning(true)
+    try {
+      await unassignTaskFromCourier(taskId)
+      
+      // Refresh assigned tasks
+      await getTasksByCourier(courierId)
+      
+      // Always refresh unassigned tasks to update indicators
+      if (organizationId) {
+        const tasks = await getUnassignedTasks(organizationId)
+        setUnassignedTasks(tasks)
+      }
+      
+      setSuccessDialog({
+        isOpen: true,
+        title: "Tarea Desasignada",
+        description: "¡La tarea se ha desasignado exitosamente!",
+        type: 'success'
+      })
+    } catch (error) {
+      console.error("Error unassigning task:", error)
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "Error al desasignar la tarea",
+        type: 'error'
+      })
+    } finally {
+      setIsUnassigning(false)
     }
   }
 
@@ -338,315 +463,486 @@ export default function CourierTasksPage() {
               <Truck className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Mis Tareas</h1>
+              <h1 className="text-2xl font-bold">Tareas</h1>
               <p className="text-sm text-muted-foreground">
-                {filteredTasks.length} tarea{filteredTasks.length !== 1 ? 's' : ''}
+                {activeTab === "assigned" 
+                  ? `${filteredTasks.length} tarea${filteredTasks.length !== 1 ? 's' : ''} asignada${filteredTasks.length !== 1 ? 's' : ''}`
+                  : `${unassignedTasks.length} tarea${unassignedTasks.length !== 1 ? 's' : ''} disponible${unassignedTasks.length !== 1 ? 's' : ''}`
+                }
               </p>
             </div>
           </div>
 
           {/* Status Summary - Mobile */}
           <div className="flex gap-4 text-center">
-            <div className="flex-1">
-              <div className="text-lg font-bold text-primary">
-                {filteredTasks.filter(t => t.status === 'PENDING').length}
-              </div>
-              <div className="text-xs text-muted-foreground">Pendientes</div>
-            </div>
-            <div className="flex-1">
-              <div className="text-lg font-bold text-green-600">
-                {filteredTasks.filter(t => t.status === 'COMPLETED').length}
-              </div>
-              <div className="text-xs text-muted-foreground">Finalizadas</div>
-            </div>
-            <div className="flex-1">
-              <div className="text-lg font-bold text-orange-600">
-                {filteredTasks.filter(t => t.status === 'CONFIRMED').length}
-              </div>
-              <div className="text-xs text-muted-foreground">Confirmadas</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filters - Mobile Optimized */}
-        <div className="space-y-3">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar tareas..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10"
-            />
-          </div>
-
-          {/* Simple Filters */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-              <SelectTrigger className="h-9 min-w-[120px]">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="PENDING">Pendiente</SelectItem>
-                <SelectItem value="CONFIRMED">Confirmado</SelectItem>
-                <SelectItem value="COMPLETED">Completado</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="h-9 min-w-[100px]">
-                <SelectValue placeholder="Prioridad" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="NORMAL">Normal</SelectItem>
-                <SelectItem value="URGENT">Urgente</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearchQuery("")
-                setStatusFilter("all")
-                setPriorityFilter("all")
-              }}
-              className="h-9 px-3 text-xs"
-            >
-              Limpiar
-            </Button>
-          </div>
-        </div>
-
-        {/* Grouped Tasks List */}
-        <div className="space-y-6">
-          {filteredTasks.length === 0 ? (
-            <div className="text-center py-12">
-              <Truck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No hay tareas asignadas</h3>
-              <p className="text-muted-foreground">
-                No tienes tareas asignadas en este momento.
-              </p>
-            </div>
-          ) : Object.keys(groupedTasks).length === 0 ? (
-            <Card className="border-2 border-dashed">
-              <CardContent className="p-8 text-center">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No hay tareas</h3>
-                <p className="text-sm text-muted-foreground">No se encontraron tareas con los filtros actuales</p>
-              </CardContent>
-            </Card>
-          ) : (
-            (() => {
-              // Group by date first
-              const dateGroups: Record<string, any[]> = {}
-              Object.values(groupedTasks).forEach((group: any) => {
-                if (!dateGroups[group.dateKey]) {
-                  dateGroups[group.dateKey] = []
-                }
-                dateGroups[group.dateKey].push(group)
-              })
-
-              return Object.entries(dateGroups).map(([dateKey, providerGroups]) => (
-                <div key={dateKey} className="space-y-4">
-                  {/* Date Header */}
-                  <div className="flex items-center gap-3 sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-10 py-2">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold capitalize">{dateKey}</h2>
-                    <Badge variant="outline" className="ml-auto">
-                      {providerGroups.reduce((total, group) => total + group.taskCount, 0)} tarea{providerGroups.reduce((total, group) => total + group.taskCount, 0) !== 1 ? 's' : ''}
-                    </Badge>
+            {activeTab === "assigned" ? (
+              <>
+                <div className="flex-1">
+                  <div className="text-lg font-bold text-primary">
+                    {filteredTasks.filter(t => t.status === 'PENDING').length}
                   </div>
+                  <div className="text-xs text-muted-foreground">Pendientes</div>
+                </div>
+                <div className="flex-1">
+                  <div className="text-lg font-bold text-green-600">
+                    {filteredTasks.filter(t => t.status === 'COMPLETED').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Finalizadas</div>
+                </div>
+                <div className="flex-1">
+                  <div className="text-lg font-bold text-orange-600">
+                    {filteredTasks.filter(t => t.status === 'CONFIRMED').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Confirmadas</div>
+                </div>
+                <div className="flex-1">
+                  <div className="text-lg font-bold text-blue-600 relative">
+                    {unassignedTasks.length}
+                    {unassignedTasks.length > 0 && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Sin Asignar</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex-1">
+                  <div className="text-lg font-bold text-blue-600">
+                    {unassignedTasks.length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Sin Asignar</div>
+                </div>
+                <div className="flex-1">
+                  <div className="text-lg font-bold text-purple-600">
+                    {unassignedTasks.filter(t => t.priority === 'URGENT').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Urgentes</div>
+                </div>
+                <div className="flex-1">
+                  <div className="text-lg font-bold text-gray-600">
+                    {unassignedTasks.filter(t => t.type === 'DELIVER').length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Entregas</div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
 
-                  {/* Provider Groups */}
-                  {providerGroups.map((group, groupIndex) => (
-                    <div key={`${group.providerId}-${groupIndex}`} className="space-y-3">
-                      {/* Provider Header - Only show if multiple tasks */}
-                      {group.isMultipleTasks && (
-                        <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20 rounded-xl border-2 border-blue-300 dark:border-blue-700 shadow-sm">
-                          <div className="p-2 bg-blue-500 rounded-full">
-                            <Building2 className="h-5 w-5 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-lg text-blue-900 dark:text-blue-100">
-                                {group.providerName || 'Cliente'}
-                              </span>
-                              <Badge className="bg-blue-500 text-white font-bold px-3 py-1">
-                                {group.taskCount} tarea{group.taskCount !== 1 ? 's' : ''}
-                              </Badge>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="assigned" className="flex items-center gap-2">
+              <Truck className="h-4 w-4" />
+              Mis Tareas
+            </TabsTrigger>
+            <TabsTrigger value="unassigned" className="flex items-center gap-2 relative">
+              <Clock className="h-4 w-4" />
+              Sin Asignar
+              {unassignedTasks.length > 0 && (
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="assigned" className="space-y-6">
+            {/* Search and Filters - Mobile Optimized */}
+            <div className="space-y-3">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar tareas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-10"
+                />
+              </div>
+
+              {/* Simple Filters */}
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+                  <SelectTrigger className="h-9 min-w-[120px]">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="PENDING">Pendiente</SelectItem>
+                    <SelectItem value="CONFIRMED">Confirmado</SelectItem>
+                    <SelectItem value="COMPLETED">Completado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="h-9 min-w-[100px]">
+                    <SelectValue placeholder="Prioridad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="NORMAL">Normal</SelectItem>
+                    <SelectItem value="URGENT">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setStatusFilter("all")
+                    setPriorityFilter("all")
+                  }}
+                  className="h-9 px-3 text-xs"
+                >
+                  Limpiar
+                </Button>
+              </div>
+            </div>
+
+            {/* Unassigned Tasks Notification */}
+            {unassignedTasks.length > 0 && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500 rounded-full">
+                    <Clock className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-900 dark:text-blue-100">
+                      ¡Hay {unassignedTasks.length} tarea{unassignedTasks.length !== 1 ? 's' : ''} sin asignar!
+                    </h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Puedes asignarte tareas adicionales en la pestaña "Sin Asignar"
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveTab("unassigned")}
+                    className="bg-blue-500 text-white hover:bg-blue-600 border-blue-500"
+                  >
+                    Ver Sin Asignar
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Grouped Tasks List */}
+            <div className="space-y-6">
+              {filteredTasks.length === 0 ? (
+                <div className="text-center py-12">
+                  <Truck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No hay tareas asignadas</h3>
+                  <p className="text-muted-foreground">
+                    No tienes tareas asignadas en este momento.
+                  </p>
+                  {unassignedTasks.length > 0 && (
+                    <div className="mt-4">
+                      <Button
+                        variant="default"
+                        onClick={() => setActiveTab("unassigned")}
+                        className="bg-blue-500 hover:bg-blue-600"
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Ver Tareas Sin Asignar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : Object.keys(groupedTasks).length === 0 ? (
+                <Card className="border-2 border-dashed">
+                  <CardContent className="p-8 text-center">
+                    <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No hay tareas</h3>
+                    <p className="text-sm text-muted-foreground">No se encontraron tareas con los filtros actuales</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                (() => {
+                  // Group by date first
+                  const dateGroups: Record<string, any[]> = {}
+                  Object.values(groupedTasks).forEach((group: any) => {
+                    if (!dateGroups[group.dateKey]) {
+                      dateGroups[group.dateKey] = []
+                    }
+                    dateGroups[group.dateKey].push(group)
+                  })
+
+                  return Object.entries(dateGroups).map(([dateKey, providerGroups]) => (
+                    <div key={dateKey} className="space-y-4">
+                      {/* Date Header */}
+                      <div className="flex items-center gap-3 sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-10 py-2">
+                        <Calendar className="h-5 w-5 text-primary" />
+                        <h2 className="text-lg font-semibold capitalize">{dateKey}</h2>
+                        <Badge variant="outline" className="ml-auto">
+                          {providerGroups.reduce((total, group) => total + group.taskCount, 0)} tarea{providerGroups.reduce((total, group) => total + group.taskCount, 0) !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+
+                      {/* Provider Groups */}
+                      {providerGroups.map((group, groupIndex) => (
+                        <div key={`${group.providerId}-${groupIndex}`} className="space-y-3">
+                          {/* Provider Header - Only show if multiple tasks */}
+                          {group.isMultipleTasks && (
+                            <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20 rounded-xl border-2 border-blue-300 dark:border-blue-700 shadow-sm">
+                              <div className="p-2 bg-blue-500 rounded-full">
+                                <Building2 className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-lg text-blue-900 dark:text-blue-100">
+                                    {group.providerName || 'Cliente'}
+                                  </span>
+                                  <Badge className="bg-blue-500 text-white font-bold px-3 py-1">
+                                    {group.taskCount} tarea{group.taskCount !== 1 ? 's' : ''}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                                  Múltiples tareas en la misma ubicación
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                              Múltiples tareas en la misma ubicación
-                            </p>
+                          )}
+
+                          {/* Tasks for this provider */}
+                          <div className="space-y-3">
+                            {group.tasks.map((task: any, taskIndex: number) => (
+                        <Card key={task.id} className={`border hover:shadow-md transition-shadow ${group.isMultipleTasks ? 'border-l-4 border-l-blue-400 bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
+                          <CardContent className="p-4">
+                            {/* Task Header - Mobile Optimized */}
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <h3 className="font-bold text-lg text-foreground">{task.referenceNumber || "Sin referencia"}</h3>
+                                  {group.isMultipleTasks && (
+                                    <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
+                                      {taskIndex + 1} de {group.taskCount}
+                                    </Badge>
+                                  )}
+                                  {getTypeBadge(task.type)}
+                                  {getPriorityBadge(task.priority)}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  {task.clientId ? (
+                                    <>
+                                      <User className="h-3 w-3" />
+                                      <span>{task.clientName}</span>
+                                    </>
+                                  ) : task.providerId ? (
+                                    <>
+                                      <Building2 className="h-3 w-3" />
+                                      <span>{task.providerName}</span>
+                                    </>
+                                  ) : null}
+                                </div>
+                              </div>
+                              {getStatusBadge(task.status)}
+                            </div>
+
+                            {/* Address - Compact */}
+                            <div className="flex items-start gap-2 mb-3 text-sm">
+                              <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-foreground font-medium">{getTaskAddress(task)}</p>
+                                {(task.city || task.province) && (
+                                  <p className="text-muted-foreground text-xs mt-1">
+                                    {[task.city, task.province].filter(Boolean).join(', ')}
+                                  </p>
+                                )}
+                                {getTaskContact(task) && (
+                                  <p className="text-muted-foreground text-xs mt-1">{getTaskContact(task)}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Notes - Only if exists */}
+                            {task.notes && (
+                              <div className="bg-amber-50 dark:bg-amber-900/20 rounded p-2 mb-3">
+                                <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Nota:</p>
+                                <p className="text-xs text-amber-700 dark:text-amber-300">{task.notes}</p>
+                              </div>
+                            )}
+
+                            {/* Action Buttons - Mobile Optimized */}
+                            <div className="space-y-2">
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" asChild className="flex-1">
+                                  <Link to={`/courier/tasks/${task.id}`}>
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Ver
+                                  </Link>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                    onClick={() => {
+                                      const fullAddress = [getTaskAddress(task), task.city, task.province].filter(Boolean).join(', ')
+                                      const encodedAddress = encodeURIComponent(fullAddress)
+                                      window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank')
+                                    }}
+                                >
+                                  <Navigation className="h-3 w-3 mr-1" />
+                                  Ir
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    const contact = getTaskContact(task)
+                                    if (contact && contact !== "Sin contacto especificado") {
+                                      // Extract only digits from the phone number
+                                      const phone = contact.replace(/\D/g, '')
+                                      if (phone) {
+                                        window.location.href = `tel:${phone}`
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Phone className="h-3 w-3 mr-1" />
+                                  Llamar
+                                </Button>
+                              </div>
+                              <div className="flex gap-2">
+                                {task.status === "CONFIRMED" && (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => handleFinalizeTask(task)}
+                                  >
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Finalizar Tarea
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={task.status === "CONFIRMED" ? "flex-1" : "w-full"}
+                                  onClick={() => handleUnassignTask(task.id)}
+                                  disabled={isUnassigning}
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  {isUnassigning ? "Desasignando..." : "Desasignar"}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                            ))}
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                })()
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="unassigned" className="space-y-6">
+            {/* Unassigned Tasks */}
+            {isLoadingUnassigned ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                  <p className="text-muted-foreground">Cargando tareas disponibles...</p>
+                </div>
+              </div>
+            ) : unassignedTasks.length === 0 ? (
+              <div className="text-center py-12">
+                <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No hay tareas disponibles</h3>
+                <p className="text-muted-foreground">
+                  No hay tareas sin asignar en este momento.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {unassignedTasks.map((task: any) => (
+                  <Card key={task.id} className="border hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      {/* Task Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 className="font-bold text-lg text-foreground">{task.referenceNumber || "Sin referencia"}</h3>
+                            {getTypeBadge(task.type)}
+                            {getPriorityBadge(task.priority)}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            {task.clientId ? (
+                              <>
+                                <User className="h-3 w-3" />
+                                <span>{task.clientName}</span>
+                              </>
+                            ) : task.providerId ? (
+                              <>
+                                <Building2 className="h-3 w-3" />
+                                <span>{task.providerName}</span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                        {getStatusBadge(task.status)}
+                      </div>
+
+                      {/* Address */}
+                      <div className="flex items-start gap-2 mb-3 text-sm">
+                        <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-foreground font-medium">{getTaskAddress(task)}</p>
+                          {(task.city || task.province) && (
+                            <p className="text-muted-foreground text-xs mt-1">
+                              {[task.city, task.province].filter(Boolean).join(', ')}
+                            </p>
+                          )}
+                          {getTaskContact(task) && (
+                            <p className="text-muted-foreground text-xs mt-1">{getTaskContact(task)}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Notes */}
+                      {task.notes && (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 rounded p-2 mb-3">
+                          <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Nota:</p>
+                          <p className="text-xs text-amber-700 dark:text-amber-300">{task.notes}</p>
                         </div>
                       )}
 
-                      {/* Tasks for this provider */}
-                      <div className="space-y-3">
-                        {group.tasks.map((task: any, taskIndex: number) => (
-                    <Card key={task.id} className={`border hover:shadow-md transition-shadow ${group.isMultipleTasks ? 'border-l-4 border-l-blue-400 bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
-                      <CardContent className="p-4">
-                        {/* Task Header - Mobile Optimized */}
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <h3 className="font-bold text-lg text-foreground">{task.referenceNumber || "Sin referencia"}</h3>
-                              {group.isMultipleTasks && (
-                                <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
-                                  {taskIndex + 1} de {group.taskCount}
-                                </Badge>
-                              )}
-                              {getTypeBadge(task.type)}
-                              {getPriorityBadge(task.priority)}
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              {task.clientId ? (
-                                <>
-                                  <User className="h-3 w-3" />
-                                  <span>{task.clientName}</span>
-                                </>
-                              ) : task.providerId ? (
-                                <>
-                                  <Building2 className="h-3 w-3" />
-                                  <span>{task.providerName}</span>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-                          {getStatusBadge(task.status)}
-                        </div>
-
-                        {/* Address - Compact */}
-                        <div className="flex items-start gap-2 mb-3 text-sm">
-                          <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-foreground font-medium">{getTaskAddress(task)}</p>
-                            {getTaskContact(task) && (
-                              <p className="text-muted-foreground text-xs mt-1">{getTaskContact(task)}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Notes - Only if exists */}
-                        {task.notes && (
-                          <div className="bg-amber-50 dark:bg-amber-900/20 rounded p-2 mb-3">
-                            <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Nota:</p>
-                            <p className="text-xs text-amber-700 dark:text-amber-300">{task.notes}</p>
-                          </div>
-                        )}
-
-                        {/* Action Buttons - Mobile Optimized */}
-                        {task.status === "CONFIRMED" ? (
-                          <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" asChild className="flex-1">
-                                <Link to={`/courier/tasks/${task.id}`}>
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  Ver
-                                </Link>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => {
-                                  const address = getTaskAddress(task)
-                                  const encodedAddress = encodeURIComponent(address)
-                                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank')
-                                }}
-                              >
-                                <Navigation className="h-3 w-3 mr-1" />
-                                Ir
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => {
-                                  const contact = getTaskContact(task)
-                                  if (contact) {
-                                    const phone = contact.split(' - ')[1]?.replace(/\D/g, '')
-                                    if (phone) {
-                                      window.location.href = `tel:${phone}`
-                                    }
-                                  }
-                                }}
-                              >
-                                <Phone className="h-3 w-3 mr-1" />
-                                Llamar
-                              </Button>
-                            </div>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => handleFinalizeTask(task)}
-                            >
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Finalizar Tarea
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" asChild className="flex-1">
-                              <Link to={`/courier/tasks/${task.id}`}>
-                                <Eye className="h-3 w-3 mr-1" />
-                                Ver
-                              </Link>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                const address = getTaskAddress(task)
-                                const encodedAddress = encodeURIComponent(address)
-                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank')
-                              }}
-                            >
-                              <Navigation className="h-3 w-3 mr-1" />
-                              Ir
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => {
-                                const contact = getTaskContact(task)
-                                if (contact) {
-                                  const phone = contact.split(' - ')[1]?.replace(/\D/g, '')
-                                  if (phone) {
-                                    window.location.href = `tel:${phone}`
-                                  }
-                                }
-                              }}
-                            >
-                              <Phone className="h-3 w-3 mr-1" />
-                              Llamar
-                            </Button>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                        ))}
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" asChild className="flex-1">
+                          <Link to={`/courier/tasks/${task.id}`}>
+                            <Eye className="h-3 w-3 mr-1" />
+                            Ver
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleAssignTask(task.id)}
+                          disabled={isAssigning}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          {isAssigning ? "Asignando..." : "Asignar"}
+                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ))
-            })()
-          )}
-        </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Finalize Task Modal */}
       {showFinalizeModal && selectedTask && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -700,7 +996,9 @@ export default function CourierTasksPage() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="receiptPhoto" className="text-sm font-medium">Foto de recibo</Label>
                     <Input
+                      id="receiptPhoto"
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
@@ -798,6 +1096,15 @@ export default function CourierTasksPage() {
           </Card>
         </div>
       )}
+
+      {/* Success/Error dialog */}
+      <SuccessDialog
+        isOpen={successDialog.isOpen}
+        onClose={() => setSuccessDialog(prev => ({ ...prev, isOpen: false }))}
+        title={successDialog.title}
+        description={successDialog.description}
+        type={successDialog.type}
+      />
     </div>
   )
 }

@@ -6,6 +6,23 @@ import { Badge } from "../components/ui/badge"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
 import { useClients } from "../hooks/use-clients"
+
+// Helper function to format dates consistently
+const formatDate = (dateString: string | undefined): string => {
+  if (!dateString) return "No programada"
+  
+  let date: Date
+  if (dateString.includes('T') || dateString.includes('Z')) {
+    // Full ISO date
+    date = new Date(dateString)
+  } else {
+    // YYYY-MM-DD format - add time to avoid timezone issues
+    date = new Date(dateString + 'T00:00:00')
+  }
+  
+  return date.toLocaleDateString('es-ES')
+}
+
 import { SuccessDialog } from "../components/ui/success-dialog"
 import { 
   ArrowLeft, 
@@ -461,7 +478,7 @@ export default function ClientDetailPage() {
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            <span>{new Date(task.scheduledDate).toLocaleDateString()}</span>
+                            <span>{formatDate(task.scheduledDate)}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />

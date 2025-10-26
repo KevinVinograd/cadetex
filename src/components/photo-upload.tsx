@@ -103,6 +103,7 @@ export function PhotoUpload({
                 size="sm"
                 className="absolute top-2 right-2"
                 onClick={handleRemove}
+                aria-label="Quitar foto"
               >
                 <X className="h-4 w-4" />
               </Button>

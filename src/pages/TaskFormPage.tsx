@@ -22,13 +22,15 @@ import {
   Copy,
   Edit,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  ImageIcon,
+  Download
 } from "lucide-react"
 
 export default function TaskFormPage() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { role, organizationId } = useAuth()
+  const { role, organizationId, isLoading } = useAuth()
   const { createTask, updateTask, deleteTask, getTaskById, currentTask, isLoadingTask, taskError } = useTasks()
   const { getClientsByOrganization } = useClients()
   const { getProvidersByOrganization } = useProviders()
@@ -79,9 +81,9 @@ export default function TaskFormPage() {
     photoRequired: true,
     mbl: "",
     hbl: "",
-    freightCertificate: "",
-    foCertificate: "",
-    bunkerCertificate: ""
+    freightCert: false,
+    foCert: false,
+    bunkerCert: false
   })
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -140,7 +142,7 @@ export default function TaskFormPage() {
         address: prev.address || provider.address,
         city: prev.city || provider.city || "",
         province: prev.province || provider.province || "",
-        contact: prev.contact || provider.contactPhone || ""
+        contact: prev.contact || provider.phoneNumber || ""
       }))
     }
   }
@@ -183,9 +185,9 @@ export default function TaskFormPage() {
         photoRequired: formData.photoRequired,
         mbl: formData.mbl || undefined,
         hbl: formData.hbl || undefined,
-        freightCert: Boolean(formData.freightCertificate),
-        foCert: Boolean(formData.foCertificate),
-        bunkerCert: Boolean(formData.bunkerCertificate),
+        freightCert: Boolean(formData.freightCert),
+        foCert: Boolean(formData.foCert),
+        bunkerCert: Boolean(formData.bunkerCert),
         linkedTaskId: undefined
       }
 
@@ -213,13 +215,7 @@ export default function TaskFormPage() {
 
       if (id) {
         // Editar tarea existente
-        console.log('Actualizando tarea con datos:', taskData)
-        console.log('Tipo de contacto:', formData.contactType)
-        console.log('ID de contacto:', formData.contactId)
-        console.log('ClientId en taskData:', taskData.clientId)
-        console.log('ProviderId en taskData:', taskData.providerId)
-        const updatedTask = await updateTask(id, taskData)
-        console.log('Tarea actualizada recibida:', updatedTask)
+        await updateTask(id, taskData)
         showSuccess("Tarea Actualizada", "La tarea ha sido actualizada exitosamente.")
       } else {
         // Crear nueva tarea
@@ -229,12 +225,7 @@ export default function TaskFormPage() {
 
       // Navegar después de un breve delay para que se vea el mensaje
       setTimeout(() => {
-        if (isCreateMode) {
-          navigate("/dashboard")
-        } else {
-          // Si estamos editando, volver al modo view
-          setIsEditing(false)
-        }
+        navigate("/dashboard")
       }, 1500)
     } catch (error) {
       console.error('Error saving task:', error)
@@ -273,9 +264,9 @@ export default function TaskFormPage() {
           photoRequired: currentTask.photoRequired || false,
           mbl: currentTask.mbl || "",
           hbl: currentTask.hbl || "",
-          freightCertificate: currentTask.freightCert ? "true" : "",
-          foCertificate: currentTask.foCert ? "true" : "",
-          bunkerCertificate: currentTask.bunkerCert ? "true" : ""
+          freightCert: Boolean(currentTask.freightCert),
+          foCert: Boolean(currentTask.foCert),
+          bunkerCert: Boolean(currentTask.bunkerCert)
         })
       }
     } else {
@@ -309,6 +300,18 @@ export default function TaskFormPage() {
         }
       }
     )
+  }
+
+  // Función para descargar foto de comprobante
+  const handleDownloadPhoto = () => {
+    if (currentTask?.receiptPhotoUrl) {
+      const link = document.createElement('a')
+      link.href = currentTask.receiptPhotoUrl
+      link.download = `comprobante-tarea-${currentTask.referenceNumber || currentTask.id}.jpg`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
   }
 
   // Cargar datos de la organización
@@ -347,20 +350,24 @@ export default function TaskFormPage() {
         photoRequired: currentTask.photoRequired || false,
         mbl: currentTask.mbl || "",
         hbl: currentTask.hbl || "",
-        freightCertificate: currentTask.freightCert ? "true" : "",
-        foCertificate: currentTask.foCert ? "true" : "",
-        bunkerCertificate: currentTask.bunkerCert ? "true" : ""
+        freightCert: currentTask.freightCert || false,
+        foCert: currentTask.foCert || false,
+        bunkerCert: currentTask.bunkerCert || false
       })
     }
   }, [currentTask, id])
 
   useEffect(() => {
-    if (role !== "orgadmin") {
+    if (!isLoading && role !== "orgadmin") {
       navigate("/login")
     }
-  }, [role, navigate])
+  }, [isLoading, role, navigate])
 
   // No renderizar si no tiene permisos
+  if (isLoading) {
+    return null
+  }
+
   if (role !== "orgadmin") {
     return null
   }
@@ -491,13 +498,13 @@ export default function TaskFormPage() {
                   <Package className="h-5 w-5" />
                   Información Básica
                 </CardTitle>
-                <CardDescription>Detalles de la tarea</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Referencia Vexa *</label>
+                    <label htmlFor="referenceBL" className="text-sm font-medium text-muted-foreground">Referencia Vexa *</label>
                     <Input
+                      id="referenceBL"
                       value={formData.referenceBL}
                       onChange={(e) => handleInputChange("referenceBL", e.target.value)}
                       className="mt-1"
@@ -533,8 +540,9 @@ export default function TaskFormPage() {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Fecha Programada *</label>
+                    <label htmlFor="scheduledDate" className="text-sm font-medium text-muted-foreground">Fecha Programada *</label>
                     <Input
+                      id="scheduledDate"
                       type="date"
                       value={formData.scheduledDate}
                       onChange={(e) => handleInputChange("scheduledDate", e.target.value)}
@@ -595,7 +603,7 @@ export default function TaskFormPage() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Tipo de Contacto *</label>
                   <Select value={formData.contactType} onValueChange={(value) => handleInputChange("contactType", value)} disabled={!isEditing}>
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger aria-label="Tipo de Contacto" className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -620,7 +628,7 @@ export default function TaskFormPage() {
                     }}
                     disabled={!isEditing}
                   >
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger aria-label={formData.contactType === "client" ? "Cliente" : "Proveedor"} className="mt-1">
                       <SelectValue placeholder={`Selecciona un ${formData.contactType === "client" ? "cliente" : "proveedor"}`} />
                     </SelectTrigger>
                     <SelectContent>
@@ -676,7 +684,7 @@ export default function TaskFormPage() {
                               address: contact.address,
                               city: formData.contactType === "client" ? contact.city : (contact.city || ""),
                               province: formData.contactType === "client" ? contact.province : (contact.province || ""),
-                              contact: formData.contactType === "client" ? (contact.phoneNumber || "") : (contact.contactPhone || "")
+                              contact: formData.contactType === "client" ? (contact.phoneNumber || "") : (contact.phoneNumber || "")
                             }))
                           }
                         }}
@@ -736,7 +744,6 @@ export default function TaskFormPage() {
             <Card className="border">
               <CardHeader>
                 <CardTitle>Certificados</CardTitle>
-                <CardDescription>Documentos de la carga</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -758,32 +765,32 @@ export default function TaskFormPage() {
                       disabled={!isEditing}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Certificado de Flete</label>
-                    <Input
-                      value={formData.freightCertificate}
-                      onChange={(e) => handleInputChange("freightCertificate", e.target.value)}
-                      className="mt-1"
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="freightCert"
+                      checked={formData.freightCert}
+                      onCheckedChange={(checked) => handleInputChange("freightCert", checked as boolean)}
                       disabled={!isEditing}
                     />
+                    <Label htmlFor="freightCert" className="text-sm">Certificado de Flete</Label>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Certificado FO</label>
-                    <Input
-                      value={formData.foCertificate}
-                      onChange={(e) => handleInputChange("foCertificate", e.target.value)}
-                      className="mt-1"
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="foCert"
+                      checked={formData.foCert}
+                      onCheckedChange={(checked) => handleInputChange("foCert", checked as boolean)}
                       disabled={!isEditing}
                     />
+                    <Label htmlFor="foCert" className="text-sm">Certificado FO</Label>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Certificado de Combustible</label>
-                    <Input
-                      value={formData.bunkerCertificate}
-                      onChange={(e) => handleInputChange("bunkerCertificate", e.target.value)}
-                      className="mt-1"
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="bunkerCert"
+                      checked={formData.bunkerCert}
+                      onCheckedChange={(checked) => handleInputChange("bunkerCert", checked as boolean)}
                       disabled={!isEditing}
                     />
+                    <Label htmlFor="bunkerCert" className="text-sm">Certificado de Combustible</Label>
                   </div>
                 </div>
               </CardContent>
@@ -793,7 +800,6 @@ export default function TaskFormPage() {
             <Card className="border">
               <CardHeader>
                 <CardTitle>Notas</CardTitle>
-                <CardDescription>Información adicional</CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
@@ -833,41 +839,41 @@ export default function TaskFormPage() {
               </CardContent>
             </Card>
 
-            {/* Task Description */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Descripción de la Tarea
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                    <span className="text-sm font-medium">
-                      {formData.type === "retiro" ? "Retiro" : "Entrega"} de documentación
-                    </span>
+            {/* Receipt Photo - Solo mostrar en modo visualización */}
+            {!isEditing && currentTask?.receiptPhotoUrl && (
+              <Card className="border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5" />
+                    Comprobante de Entrega
+                  </CardTitle>
+                  <CardDescription>
+                    Foto subida por el courier como comprobante
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="relative">
+                    <img
+                      src={currentTask.receiptPhotoUrl}
+                      alt="Comprobante de entrega"
+                      className="w-full max-w-md mx-auto rounded-lg border shadow-sm"
+                      style={{ maxHeight: '400px', objectFit: 'cover' }}
+                    />
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {formData.type === "retiro"
-                      ? "Se recogerá la documentación en la dirección especificada"
-                      : "Se entregará la documentación en la dirección especificada"
-                    }
-                  </p>
-                  {formData.contactType === "client" && formData.contactId && (
-                    <p className="text-sm text-muted-foreground">
-                      Cliente: {orgClients.find(c => c.id === formData.contactId)?.name || "No seleccionado"}
-                    </p>
-                  )}
-                  {formData.contactType === "provider" && formData.contactId && (
-                    <p className="text-sm text-muted-foreground">
-                      Proveedor: {orgProviders.find(p => p.id === formData.contactId)?.name || "No seleccionado"}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={handleDownloadPhoto}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Descargar Foto
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </form>

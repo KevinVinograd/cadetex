@@ -11,6 +11,7 @@ import {
   Save,
   X
 } from "lucide-react"
+import { mockClients, mockProviders, mockCouriers } from "@/lib/mock-data"
 
 interface NewTaskModalProps {
   isOpen: boolean
@@ -53,7 +54,7 @@ export default function NewTaskModal({ isOpen, onClose, onSuccess }: NewTaskModa
         contactId: clientId,
         address: client.address,
         city: client.city,
-        contact: client.contact || ""
+        contact: client.phoneNumber || client.contact || ""
       }))
     }
   }
@@ -66,7 +67,7 @@ export default function NewTaskModal({ isOpen, onClose, onSuccess }: NewTaskModa
         contactId: providerId,
         address: provider.address,
         city: provider.city,
-        contact: provider.contact || ""
+        contact: provider.phoneNumber || provider.contact || ""
       }))
     }
   }
@@ -107,7 +108,6 @@ export default function NewTaskModal({ isOpen, onClose, onSuccess }: NewTaskModa
         updatedAt: new Date().toISOString()
       }
       
-      console.log("New task created:", newTask)
       
       // Reset form
       setFormData({
@@ -168,7 +168,7 @@ export default function NewTaskModal({ isOpen, onClose, onSuccess }: NewTaskModa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent aria-describedby={undefined} className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -192,8 +192,9 @@ export default function NewTaskModal({ isOpen, onClose, onSuccess }: NewTaskModa
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Reference BL *</label>
+                      <label className="text-sm font-medium text-muted-foreground" htmlFor="referenceBL">Reference BL *</label>
                       <Input
+                        id="referenceBL"
                         value={formData.referenceBL}
                         onChange={(e) => handleInputChange("referenceBL", e.target.value)}
                         className="mt-1"
@@ -228,8 +229,9 @@ export default function NewTaskModal({ isOpen, onClose, onSuccess }: NewTaskModa
                       </Select>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Fecha Programada *</label>
+                      <label className="text-sm font-medium text-muted-foreground" htmlFor="scheduledDate">Fecha Programada *</label>
                       <Input
+                        id="scheduledDate"
                         type="date"
                         value={formData.scheduledDate}
                         onChange={(e) => handleInputChange("scheduledDate", e.target.value)}
@@ -340,8 +342,9 @@ export default function NewTaskModal({ isOpen, onClose, onSuccess }: NewTaskModa
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Dirección *</label>
+                    <label className="text-sm font-medium text-muted-foreground" htmlFor="address">Dirección *</label>
                     <Textarea
+                      id="address"
                       value={formData.address}
                       onChange={(e) => handleInputChange("address", e.target.value)}
                       className="mt-1"

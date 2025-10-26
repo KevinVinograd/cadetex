@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const role = localStorage.getItem('userRole') as AuthState["role"]
                 const email = localStorage.getItem('userEmail')
 
-                console.log("AuthContext - initializeAuth - token:", !!token, "role:", role, "email:", email)
+                
 
                 if (token && role && email) {
                     // Solo validar si han pasado más de 30 segundos desde la última validación
@@ -48,10 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     if (now - lastValidationTime.current > VALIDATION_COOLDOWN) {
                         try {
                             const validation = await apiService.validateToken()
-                            console.log("AuthContext - validation result:", validation)
+                            
 
                             if (validation.valid && validation.user) {
-                                console.log("AuthContext - setting state with user:", validation.user)
+                                
                                 lastValidationTime.current = now
                                 setState({
                                     role: validation.user.role?.toLowerCase() as AuthState["role"],
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                                 })
                             } else {
                                 // Token inválido, limpiar todo
-                                console.log("AuthContext - token invalid, clearing state")
+                                
                                 apiService.logout()
                                 localStorage.removeItem('userRole')
                                 localStorage.removeItem('userEmail')
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                                 setState({ role: null, email: null, organizationId: null, isLoading: false, user: null })
                             }
                         } catch (error) {
-                            console.warn("AuthContext - validation failed, using cached data:", error)
+                            console.warn("AuthContext - validation failed, using cached data")
                             // Si la validación falla pero tenemos datos en localStorage, usarlos
                             setState({
                                 role: role,
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         }
                     } else {
                         // Usar datos cacheados si la validación fue reciente
-                        console.log("AuthContext - using cached data (recent validation)")
+                        
                         setState({
                             role: role,
                             email: email,
@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         })
                     }
                 } else {
-                    console.log("AuthContext - no token/role/email, setting empty state")
+                    
                     setState({ role: null, email: null, organizationId: null, isLoading: false, user: null })
                 }
             } catch (error) {

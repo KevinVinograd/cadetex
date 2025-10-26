@@ -1,6 +1,22 @@
 import * as XLSX from 'xlsx'
 import type { Task } from './types'
 
+// Helper function to format dates consistently
+const formatDate = (dateString: string | undefined): string => {
+  if (!dateString) return "No programada"
+  
+  let date: Date
+  if (dateString.includes('T') || dateString.includes('Z')) {
+    // Full ISO date
+    date = new Date(dateString)
+  } else {
+    // YYYY-MM-DD format - add time to avoid timezone issues
+    date = new Date(dateString + 'T00:00:00')
+  }
+  
+  return date.toLocaleDateString('es-ES')
+}
+
 export function exportTasksToExcel(tasks: Task[], filename: string = 'tareas-completadas.xlsx') {
   // Filtrar solo tareas completadas
   const completedTasks = tasks.filter(task => task.status === 'finalizada')
@@ -21,7 +37,7 @@ export function exportTasksToExcel(tasks: Task[], filename: string = 'tareas-com
     'Certificación de Búnker': task.bunkerCertificate || '',
     'Dirección de Recogida': task.pickupAddress,
     'Dirección de Entrega': task.deliveryAddress,
-    'Fecha Programada': new Date(task.scheduledDate).toLocaleDateString('es-ES'),
+    'Fecha Programada': formatDate(task.scheduledDate),
     'Hora Programada': task.scheduledTime || '',
     'Prioridad': task.priority,
     'Observaciones': task.notes || ''
@@ -81,7 +97,7 @@ export function exportAllTasksToExcel(tasks: Task[], filename: string = 'todas-l
     'Certificación de Búnker': task.bunkerCertificate || '',
     'Dirección de Recogida': task.pickupAddress,
     'Dirección de Entrega': task.deliveryAddress,
-    'Fecha Programada': new Date(task.scheduledDate).toLocaleDateString('es-ES'),
+    'Fecha Programada': formatDate(task.scheduledDate),
     'Hora Programada': task.scheduledTime || '',
     'Prioridad': task.priority,
     'Observaciones': task.notes || ''

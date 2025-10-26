@@ -54,6 +54,7 @@ function App() {
               <Route path="tasks" element={<TasksPage />} />
               <Route path="tasks/new" element={<TaskFormPage />} />
               <Route path="tasks/clone" element={<CloneTaskPage />} />
+              <Route path="tasks/clone/:id" element={<CloneTaskPage />} />
               <Route path="tasks/:id/edit" element={<TaskFormPage />} />
               <Route path="tasks/:id" element={<TaskFormPage />} />
             </Route>

@@ -13,6 +13,9 @@ export interface Task {
   courierId?: string
   courierName?: string
   addressOverride?: string
+  city?: string
+  province?: string
+  contact?: string
   status: 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
   priority: 'NORMAL' | 'URGENT'
   scheduledDate?: string
@@ -54,6 +57,7 @@ export interface UpdateTaskRequest {
   clientId?: string
   providerId?: string
   courierId?: string
+  unassignCourier?: boolean
   addressOverride?: string
   status?: 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
   priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
@@ -76,22 +80,16 @@ export function useTasks() {
   const [isLoadingTask, setIsLoadingTask] = useState(false)
   const [taskError, setTaskError] = useState<string | null>(null)
 
-  // Debug effect to track tasks state changes
+  // Debug effect removed
   useEffect(() => {
-    console.log('useTasks - Tasks state changed:', {
-      tasksLength: tasks.length,
-      cancelledCount: tasks.filter(t => t.status === 'CANCELLED').length,
-      tasks: tasks.map(t => ({ id: t.id, status: t.status }))
-    })
+    // no-op
   }, [tasks])
 
   const fetchTasks = useCallback(async () => {
     try {
-      console.log('useTasks - fetchTasks called')
       setIsLoading(true)
       setError(null)
       const response = await apiService.getTasks()
-      console.log('useTasks - fetchTasks response:', response.length, 'tasks')
       setTasks(response)
     } catch (err) {
       console.error('Error fetching tasks:', err)
@@ -116,6 +114,7 @@ export function useTasks() {
     try {
       const updatedTask = await apiService.updateTask(taskId, taskData)
       setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task))
+      setCurrentTask(prev => (prev && prev.id === taskId ? updatedTask : prev))
       return updatedTask
     } catch (err) {
       console.error('Error updating task:', err)
@@ -127,6 +126,7 @@ export function useTasks() {
     try {
       await apiService.deleteTask(taskId)
       setTasks(prev => prev.filter(task => task.id !== taskId))
+      setCurrentTask(prev => (prev && prev.id === taskId ? null : prev))
     } catch (err) {
       console.error('Error deleting task:', err)
       throw new Error('Error al eliminar la tarea')
@@ -152,12 +152,9 @@ export function useTasks() {
 
   const getTasksByOrganization = useCallback(async (organizationId: string): Promise<Task[]> => {
     try {
-      console.log('useTasks - getTasksByOrganization called for:', organizationId)
       setIsLoading(true)
       setError(null)
       const response = await apiService.getTasksByOrganization(organizationId)
-      console.log('useTasks - getTasksByOrganization response:', response.length, 'tasks')
-      console.log('useTasks - Task statuses:', response.map(t => ({ id: t.id, status: t.status })))
       setTasks(response)
       return response
     } catch (err) {
@@ -171,11 +168,9 @@ export function useTasks() {
 
   const getTasksByCourier = async (courierId: string): Promise<Task[]> => {
     try {
-      console.log('useTasks - getTasksByCourier called for:', courierId)
       setIsLoading(true)
       setError(null)
       const response = await apiService.getTasksByCourier(courierId)
-      console.log('useTasks - getTasksByCourier response:', response.length, 'tasks')
       setTasks(response)
       return response
     } catch (err) {
@@ -191,6 +186,7 @@ export function useTasks() {
     try {
       const updatedTask = await apiService.updateTaskStatus(taskId, status)
       setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task))
+      setCurrentTask(prev => (prev && prev.id === taskId ? updatedTask : prev))
       return updatedTask
     } catch (err) {
       console.error('Error updating task status:', err)
@@ -211,6 +207,46 @@ export function useTasks() {
     }
   }
 
+  const getUnassignedTasks = useCallback(async (organizationId: string): Promise<Task[]> => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const response = await apiService.getTasksByOrganization(organizationId)
+      // Filter tasks without courierId
+      const unassignedTasks = response.filter(task => !task.courierId)
+      return unassignedTasks
+    } catch (err) {
+      console.error('Error fetching unassigned tasks:', err)
+      setError('Error al cargar las tareas sin asignar')
+      throw new Error('Error al cargar las tareas sin asignar')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const assignTaskToCourier = async (taskId: string, courierId: string): Promise<Task> => {
+    try {
+      const updatedTask = await apiService.updateTask(taskId, { courierId })
+      setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task))
+      setCurrentTask(prev => (prev && prev.id === taskId ? updatedTask : prev))
+      return updatedTask
+    } catch (err) {
+      console.error('Error assigning task to courier:', err)
+      throw new Error('Error al asignar la tarea al courier')
+    }
+  }
+
+  const unassignTaskFromCourier = async (taskId: string): Promise<Task> => {
+    try {
+      const updatedTask = await apiService.updateTask(taskId, { unassignCourier: true })
+      setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task))
+      setCurrentTask(prev => (prev && prev.id === taskId ? updatedTask : prev))
+      return updatedTask
+    } catch (err) {
+      console.error('Error unassigning task from courier:', err)
+      throw new Error('Error al desasignar la tarea del courier')
+    }
+  }
 
   return {
     tasks,
@@ -227,6 +263,9 @@ export function useTasks() {
     getTasksByOrganization,
     getTasksByCourier,
     updateTaskStatus,
-    uploadTaskPhoto
+    uploadTaskPhoto,
+    getUnassignedTasks,
+    assignTaskToCourier,
+    unassignTaskFromCourier
   }
 }

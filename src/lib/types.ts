@@ -6,34 +6,32 @@ export type Priority = "baja" | "normal" | "alta" | "urgente"
 export interface Task {
   id: string
   type: TaskType
-  clientId: string
-  clientName: string
+  clientId?: string
+  clientName?: string
   providerId?: string
   providerName?: string
   organizationId?: string
-  referenceNumber: string
-  mbl?: string
-  hbl?: string
-  freightCertificate?: string
-  foCertificate?: string
-  bunkerCertificate?: string
-  status: TaskStatus
-  scheduledDate: string
-  pickupAddress: string
-  pickupCity: string
-  pickupContact: string
-  deliveryAddress: string
-  deliveryCity: string
-  deliveryContact: string
+  referenceNumber?: string
+  addressOverride?: string
+  city?: string
+  province?: string
+  contact?: string
   courierId?: string
   courierName?: string
-  notes?: string
+  status: TaskStatus
   priority: Priority
-  photoRequired: boolean // Si la foto es obligatoria
-  receiptPhoto?: string // Foto obligatoria del acuse de recibo
-  additionalPhotos?: string[] // Fotos adicionales opcionales
-  createdAt: string
-  updatedAt: string
+  scheduledDate?: string
+  notes?: string
+  mbl?: string
+  hbl?: string
+  freightCert?: boolean
+  foCert?: boolean
+  bunkerCert?: boolean
+  linkedTaskId?: string
+  receiptPhotoUrl?: string
+  photoRequired?: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface Client {
@@ -41,7 +39,7 @@ export interface Client {
   name: string
   address: string
   city: string
-  phone?: string
+  phoneNumber?: string
   email?: string
   contact?: string
   organizationId?: string
@@ -52,7 +50,7 @@ export interface Provider {
   name: string
   address: string
   city: string
-  phone?: string
+  phoneNumber?: string
   email?: string
   contact?: string
   organizationId?: string

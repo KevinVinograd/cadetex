@@ -45,7 +45,7 @@ export default function NewClientModal({ isOpen, onClose, onSuccess }: NewClient
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      console.log("New client created:", formData)
+      
       
       // Reset form
       setFormData({
