@@ -20,6 +20,7 @@ export interface Task {
   priority: 'NORMAL' | 'URGENT'
   scheduledDate?: string
   notes?: string
+  courierNotes?: string
   mbl?: string
   hbl?: string
   freightCert: boolean
@@ -194,10 +195,11 @@ export function useTasks() {
     }
   }
 
-  const uploadTaskPhoto = async (taskId: string, photoFile: File): Promise<string> => {
+  const uploadTaskPhoto = async (taskId: string, photoFile: File, isReceipt = false): Promise<string> => {
     try {
       const formData = new FormData()
       formData.append('photo', photoFile)
+      formData.append('isReceipt', String(isReceipt))
 
       const response = await apiService.uploadTaskPhoto(taskId, formData)
       return response.photoUrl
@@ -206,6 +208,16 @@ export function useTasks() {
       throw new Error('Error al subir la foto de la tarea')
     }
   }
+
+  const getTaskPhotos = useCallback(async (taskId: string): Promise<any[]> => {
+    try {
+      const photos = await apiService.getTaskPhotos(taskId)
+      return photos
+    } catch (err) {
+      console.error('Error fetching task photos:', err)
+      throw new Error('Error al cargar las fotos de la tarea')
+    }
+  }, [])
 
   const getUnassignedTasks = useCallback(async (organizationId: string): Promise<Task[]> => {
     try {
@@ -264,6 +276,7 @@ export function useTasks() {
     getTasksByCourier,
     updateTaskStatus,
     uploadTaskPhoto,
+    getTaskPhotos,
     getUnassignedTasks,
     assignTaskToCourier,
     unassignTaskFromCourier

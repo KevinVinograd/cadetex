@@ -424,6 +424,12 @@ class ApiService {
       body: formData,
     });
   }
+
+  async getTaskPhotos(taskId: string): Promise<any[]> {
+    return this.request<any[]>(`/tasks/${taskId}/photos`, {
+      method: 'GET',
+    });
+  }
 }
 
 // Instancia singleton del servicio de API

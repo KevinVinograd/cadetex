@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Badge } from "../components/ui/badge"
@@ -39,15 +39,21 @@ import {
   Save,
   MessageSquare,
   Download,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Camera,
+  Upload
 } from "lucide-react"
 
 export default function CourierTaskDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { getTaskById, currentTask, isLoadingTask, taskError } = useTasks()
+  const { getTaskById, currentTask, isLoadingTask, taskError, getTaskPhotos, uploadTaskPhoto, updateTask } = useTasks()
   const [notes, setNotes] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
+  const [additionalPhotos, setAdditionalPhotos] = useState<any[]>([])
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   
   // Find the task by ID
   const task = currentTask
@@ -64,12 +70,67 @@ export default function CourierTaskDetailPage() {
     const handleVisibilityChange = () => {
       if (!document.hidden && id) {
         getTaskById(id)
+        loadPhotos()
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [id, getTaskById])
+
+  // Load additional photos when task is loaded
+  useEffect(() => {
+    if (id && task) {
+      loadPhotos()
+    }
+  }, [id, task])
+
+  // Load courier notes when task is loaded
+  useEffect(() => {
+    if (task?.courierNotes) {
+      setNotes(task.courierNotes)
+    }
+  }, [task])
+
+  const loadPhotos = async () => {
+    if (!id) return
+    setIsLoadingPhotos(true)
+    try {
+      const photos = await getTaskPhotos(id)
+      setAdditionalPhotos(photos)
+    } catch (err) {
+      console.error('Error loading photos:', err)
+    } finally {
+      setIsLoadingPhotos(false)
+    }
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      setSelectedFile(file)
+    }
+  }
+
+  const handleUploadAdditionalPhoto = async () => {
+    if (!selectedFile || !id) return
+    
+    setIsUploading(true)
+    try {
+      await uploadTaskPhoto(id, selectedFile, false) // false = foto adicional
+      await loadPhotos() // Recargar fotos
+      setSelectedFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (err) {
+      console.error('Error uploading photo:', err)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
   
   // Get the relevant address based on task type
   const getTaskAddress = () => {
@@ -185,17 +246,25 @@ export default function CourierTaskDetailPage() {
   }
 
   const handleNotesUpdate = async () => {
+    if (!id || !notes.trim()) return
+    
     setIsUpdating(true)
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    setIsUpdating(false)
+    try {
+      await updateTask(id, { courierNotes: notes.trim() })
+      // Reload task to get updated data
+      if (id) {
+        await getTaskById(id)
+      }
+    } catch (err) {
+      console.error('Error updating notes:', err)
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
-  const canStartTask = task.status === "en_preparacion" || task.status === "pendiente_confirmar"
-  const canCompleteTask = task.status === "confirmada_tomar"
-  const isTaskCompleted = task.status === "finalizada"
+  const canStartTask = task?.status === "PENDING" || task?.status === "PENDING_CONFIRMATION"
+  const canCompleteTask = task?.status === "CONFIRMED"
+  const isTaskCompleted = task?.status === "COMPLETED"
 
   return (
     <div className="space-y-8 p-8">
@@ -206,7 +275,7 @@ export default function CourierTaskDetailPage() {
         </Button>
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Task Details</h1>
-          <p className="text-sm text-muted-foreground">Manage your assigned task {task.referenceBL}</p>
+          <p className="text-sm text-muted-foreground">Manage your assigned task {task.referenceNumber}</p>
         </div>
       </div>
 
@@ -216,16 +285,16 @@ export default function CourierTaskDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                {task.type === "retiro" ? "Dirección de Retiro" : "Dirección de Entrega"}
+                {task.type === "RETIRE" ? "Dirección de Retiro" : "Dirección de Entrega"}
               </CardTitle>
               <CardDescription>
-                {task.type === "retiro" ? "Ubicación donde retirar" : "Ubicación donde entregar"}
+                {task.type === "RETIRE" ? "Ubicación donde retirar" : "Ubicación donde entregar"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">
-                  {task.type === "retiro" ? "Dirección de Retiro" : "Dirección de Entrega"}
+                  {task.type === "RETIRE" ? "Dirección de Retiro" : "Dirección de Entrega"}
                 </label>
                 <div className="mt-1 p-3 bg-muted rounded-md">
                   <p className="text-sm font-medium">{getTaskAddress()}</p>
@@ -272,8 +341,8 @@ export default function CourierTaskDetailPage() {
                   {getPriorityBadge(task.priority || "normal")}
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium">{task.referenceBL}</p>
-                  <p className="text-xs text-muted-foreground">{task.type === "retiro" ? "Retiro" : "Entrega"}</p>
+                  <p className="text-sm font-medium">{task.referenceNumber}</p>
+                  <p className="text-xs text-muted-foreground">{task.type === "RETIRE" ? "Retiro" : "Entrega"}</p>
                 </div>
               </div>
 
@@ -388,6 +457,104 @@ export default function CourierTaskDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Additional Photos Section */}
+          <Card className="border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-5 w-5" />
+                Fotos Adicionales
+              </CardTitle>
+              <CardDescription>
+                Agregá fotos adicionales si necesitas documentar algo más
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Upload new photo */}
+              <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                {selectedFile ? (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">{selectedFile.name}</p>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleUploadAdditionalPhoto}
+                        disabled={isUploading}
+                        size="sm"
+                      >
+                        {isUploading ? "Subiendo..." : "Subir Foto"}
+                      </Button>
+                      <Button
+                        onClick={() => setSelectedFile(null)}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Seleccioná una foto adicional
+                    </p>
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Seleccionar Foto
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Display additional photos */}
+              {isLoadingPhotos ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Cargando fotos...
+                </div>
+              ) : additionalPhotos.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {additionalPhotos.map((photo) => (
+                    <div key={photo.id} className="relative">
+                      <img
+                        src={photo.photoUrl}
+                        alt="Foto adicional"
+                        className="w-full h-48 object-cover rounded-lg border"
+                      />
+                      <Button
+                        onClick={() => {
+                          const link = document.createElement('a')
+                          link.href = photo.photoUrl
+                          link.download = `foto-${photo.id}.jpg`
+                          document.body.appendChild(link)
+                          link.click()
+                          document.body.removeChild(link)
+                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No hay fotos adicionales aún
+                </div>
+              )}
+            </CardContent>
+          </Card>
       </div>
     </div>
   )

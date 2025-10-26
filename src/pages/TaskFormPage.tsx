@@ -31,12 +31,13 @@ export default function TaskFormPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { role, organizationId, isLoading } = useAuth()
-  const { createTask, updateTask, deleteTask, getTaskById, currentTask, isLoadingTask, taskError } = useTasks()
+  const { createTask, updateTask, deleteTask, getTaskById, currentTask, isLoadingTask, taskError, getTaskPhotos } = useTasks()
   const { getClientsByOrganization } = useClients()
   const { getProvidersByOrganization } = useProviders()
   const { getCouriersByOrganization } = useCouriers()
   const [isSaving, setIsSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(!id) // Si no hay ID, es creación (siempre en modo edición)
+  const [additionalPhotos, setAdditionalPhotos] = useState<any[]>([])
 
   // Estado para el diálogo de éxito
   const [successDialog, setSuccessDialog] = useState<{
@@ -325,6 +326,21 @@ export default function TaskFormPage() {
       getTaskById(id)
     }
   }, [id, currentTask, getTaskById])
+
+  // Cargar fotos adicionales cuando se carga la tarea
+  useEffect(() => {
+    const loadPhotos = async () => {
+      if (id && getTaskPhotos) {
+        try {
+          const photos = await getTaskPhotos(id)
+          setAdditionalPhotos(photos)
+        } catch (err) {
+          console.error('Error loading photos:', err)
+        }
+      }
+    }
+    loadPhotos()
+  }, [id, getTaskPhotos])
 
   // Cargar datos del formulario cuando se carga la tarea
   useEffect(() => {
@@ -812,6 +828,28 @@ export default function TaskFormPage() {
                 />
               </CardContent>
             </Card>
+
+            {/* Notas del Courier - Solo en modo visualización */}
+            {!isEditing && currentTask?.courierNotes && (
+              <Card className="border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Notas del Courier
+                  </CardTitle>
+                  <CardDescription>
+                    Notas agregadas por el courier durante la entrega
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+                      {currentTask.courierNotes}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -870,6 +908,49 @@ export default function TaskFormPage() {
                       <Download className="h-4 w-4" />
                       Descargar Foto
                     </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Additional Photos - Solo mostrar en modo visualización */}
+            {!isEditing && additionalPhotos.length > 0 && (
+              <Card className="border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5" />
+                    Fotos Adicionales
+                  </CardTitle>
+                  <CardDescription>
+                    Fotos adicionales subidas por el courier
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    {additionalPhotos.map((photo) => (
+                      <div key={photo.id} className="relative">
+                        <img
+                          src={photo.photoUrl}
+                          alt="Foto adicional"
+                          className="w-full h-48 object-cover rounded-lg border"
+                        />
+                        <Button
+                          onClick={() => {
+                            const link = document.createElement('a')
+                            link.href = photo.photoUrl
+                            link.download = `foto-${photo.id}.jpg`
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>

@@ -72,3 +72,12 @@ export interface Organization {
   name: string
   adminEmail?: string
 }
+
+export interface TaskPhoto {
+  id: string
+  taskId: string
+  photoUrl: string
+  description?: string
+  uploadedAt?: string
+  updatedAt?: string
+}

@@ -55,7 +55,7 @@ export default function CourierTasksPage() {
   const [showFinalizeModal, setShowFinalizeModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState<any>(null)
   const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null)
-  const [additionalPhoto, setAdditionalPhoto] = useState<string | null>(null)
+  const [additionalPhotos, setAdditionalPhotos] = useState<string[]>([])
   const [isFinalizing, setIsFinalizing] = useState(false)
   const [isAssigning, setIsAssigning] = useState(false)
   const [isUnassigning, setIsUnassigning] = useState(false)
@@ -342,7 +342,7 @@ export default function CourierTasksPage() {
   const handleFinalizeTask = (task: any) => {
     setSelectedTask(task)
     setReceiptPhoto(null)
-    setAdditionalPhoto(null)
+    setAdditionalPhotos([])
     setShowFinalizeModal(true)
   }
 
@@ -358,8 +358,18 @@ export default function CourierTasksPage() {
         const blob = await response.blob()
         const file = new File([blob], 'receipt.jpg', { type: 'image/jpeg' })
         
-        // Upload the photo (the hook will create FormData internally)
-        await uploadTaskPhoto(selectedTask.id, file)
+        // Upload the photo as receipt (isReceipt = true)
+        await uploadTaskPhoto(selectedTask.id, file, true)
+      }
+
+      // Upload all additional photos
+      for (const photoBase64 of additionalPhotos) {
+        const response = await fetch(photoBase64)
+        const blob = await response.blob()
+        const file = new File([blob], 'additional.jpg', { type: 'image/jpeg' })
+        
+        // Upload as additional photo (isReceipt = false)
+        await uploadTaskPhoto(selectedTask.id, file, false)
       }
 
       // Update task status to COMPLETED
@@ -1025,18 +1035,18 @@ export default function CourierTasksPage() {
                 </div>
               )}
 
-              {/* Foto adicional opcional */}
+              {/* Fotos adicionales opcionales */}
               <div className="space-y-3 p-4 border border-dashed border-muted-foreground/20 rounded-lg bg-muted/30">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-full bg-muted">
                     <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <Label className="text-sm font-medium">
-                      Foto Adicional (Opcional)
+                      Fotos Adicionales (Opcional)
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      Para documentar cualquier detalle extra
+                      Agregá múltiples fotos para documentar detalles extra
                     </p>
                   </div>
                 </div>
@@ -1050,19 +1060,34 @@ export default function CourierTasksPage() {
                       if (file) {
                         const reader = new FileReader()
                         reader.onload = (e) => {
-                          setAdditionalPhoto(e.target?.result as string)
+                          const base64 = e.target?.result as string
+                          setAdditionalPhotos(prev => [...prev, base64])
                         }
                         reader.readAsDataURL(file)
                       }
+                      // Reset input
+                      e.target.value = ''
                     }}
                     className="text-sm"
                   />
-                  {additionalPhoto && (
-                    <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                      <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm text-blue-700 dark:text-blue-400 font-medium">
-                        Foto adicional cargada
-                      </span>
+                  {additionalPhotos.length > 0 && (
+                    <div className="space-y-2">
+                      {additionalPhotos.map((_, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                          <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm text-blue-700 dark:text-blue-400 font-medium flex-1">
+                            Foto adicional {index + 1}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAdditionalPhotos(prev => prev.filter((_, i) => i !== index))}
+                            className="h-7 w-7 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
