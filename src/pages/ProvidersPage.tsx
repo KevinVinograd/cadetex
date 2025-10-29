@@ -11,6 +11,9 @@ import { Alert, AlertDescription } from "../components/ui/alert"
 import { Loader2, Plus, Search, Eye, Trash2, ArrowLeft, AlertCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
+import { getTranslation } from "../lib/translations"
+
+const t = getTranslation()
 
 export default function ProvidersPage() {
   const navigate = useNavigate()
@@ -110,9 +113,9 @@ export default function ProvidersPage() {
             Volver al Dashboard
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Gestión de Proveedores</h1>
+          <h1 className="text-2xl font-bold">{t.providers.management}</h1>
             <p className="text-gray-600 dark:text-gray-400">
-              Administra los proveedores de tu organización
+              {t.providers.description}
             </p>
           </div>
         </div>
@@ -126,7 +129,7 @@ export default function ProvidersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Proveedores</CardTitle>
+          <CardTitle>{t.providers.providersList}</CardTitle>
           <CardDescription>
             {filteredProviders.length} proveedor{filteredProviders.length !== 1 ? 'es' : ''} en tu organización
           </CardDescription>
@@ -142,7 +145,7 @@ export default function ProvidersPage() {
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre, dirección, ciudad o email..."
+              placeholder={t.providers.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -165,7 +168,7 @@ export default function ProvidersPage() {
               {filteredProviders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    {searchQuery ? "No se encontraron proveedores con ese criterio" : "No hay proveedores registrados"}
+                {searchQuery ? t.providers.noProvidersFiltered : t.providers.noProvidersRegistered}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -211,9 +214,9 @@ export default function ProvidersPage() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar Proveedor</DialogTitle>
+            <DialogTitle>{t.providers.deleteTitle}</DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de que quieres eliminar este proveedor? Esta acción no se puede deshacer.
+              {t.providers.deleteConfirm}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -237,7 +240,7 @@ export default function ProvidersPage() {
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Eliminar
+                  {t.providers.delete}
                 </>
               )}
             </Button>

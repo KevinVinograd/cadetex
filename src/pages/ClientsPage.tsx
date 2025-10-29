@@ -11,6 +11,9 @@ import { Alert, AlertDescription } from "../components/ui/alert"
 import { Loader2, Plus, Search, Eye, Trash2, ArrowLeft } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
+import { getTranslation } from "../lib/translations"
+
+const t = getTranslation()
 
 export default function ClientsPage() {
   const navigate = useNavigate()

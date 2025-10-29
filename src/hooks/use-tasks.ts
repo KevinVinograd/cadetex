@@ -223,10 +223,9 @@ export function useTasks() {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await apiService.getTasksByOrganization(organizationId)
-      // Filter tasks without courierId
-      const unassignedTasks = response.filter(task => !task.courierId)
-      return unassignedTasks
+      // Usar el nuevo endpoint del backend que ya filtra las tareas
+      const response = await apiService.getUnassignedTasks(organizationId)
+      return response
     } catch (err) {
       console.error('Error fetching unassigned tasks:', err)
       setError('Error al cargar las tareas sin asignar')

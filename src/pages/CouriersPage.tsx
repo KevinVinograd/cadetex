@@ -11,6 +11,9 @@ import { Alert, AlertDescription } from "../components/ui/alert"
 import { Loader2, Plus, Search, Eye, Edit, Trash2, ArrowLeft, AlertCircle, CheckCircle, XCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
+import { getTranslation } from "../lib/translations"
+
+const t = getTranslation()
 
 export default function CouriersPage() {
   const navigate = useNavigate()
@@ -110,9 +113,9 @@ export default function CouriersPage() {
             Volver al Dashboard
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Gestión de Cadetes</h1>
+          <h1 className="text-2xl font-bold">{t.couriers.management}</h1>
             <p className="text-gray-600 dark:text-gray-400">
-              Administra los cadetes de tu organización
+              {t.couriers.description}
             </p>
           </div>
         </div>
@@ -128,7 +131,7 @@ export default function CouriersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Cadetes</CardTitle>
+          <CardTitle>{t.couriers.couriersList}</CardTitle>
           <CardDescription>
             {filteredCouriers.length} cadete{filteredCouriers.length !== 1 ? 's' : ''} en tu organización
           </CardDescription>
@@ -144,7 +147,7 @@ export default function CouriersPage() {
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre, email, teléfono o vehículo..."
+              placeholder={t.couriers.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -208,7 +211,7 @@ export default function CouriersPage() {
                             size="sm"
                             onClick={() => handleDelete(courier.id)}
                             className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                            title="Eliminar"
+                          title={t.couriers.delete}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -227,9 +230,9 @@ export default function CouriersPage() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar Courier</DialogTitle>
+            <DialogTitle>{t.couriers.deleteTitle}</DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de que quieres eliminar este courier? Esta acción no se puede deshacer.
+              {t.couriers.deleteConfirm}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

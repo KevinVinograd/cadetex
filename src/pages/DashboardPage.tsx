@@ -2,17 +2,22 @@ import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
-import { Badge } from "../components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
-import { Alert, AlertDescription } from "../components/ui/alert"
-import { Plus, Search, Package, Clock, Download, Eye, Trash2, AlertCircle, PlayCircle, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Plus, Search, Download, Package, AlertCircle, Clock, PlayCircle, CheckCircle } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
 import { exportTasksToExcel, exportAllTasksToExcel } from "../lib/excel-export"
+import { getTranslation } from "../lib/translations"
+import { TaskTable } from "../components/TaskTable"
+import { TaskStatsCards } from "../components/TaskStatsCards"
+import { LoadingState } from "../components/LoadingState"
+import { ErrorState } from "../components/ErrorState"
+import { filterTasks, sortTasks, calculateTaskStats } from "../lib/task-helpers"
+
+const t = getTranslation()
 
 export default function DashboardPage() {
   const { role, isLoading, organizationId } = useAuth()
@@ -21,6 +26,8 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<string>("scheduledDate")
+  const [sortOrder, setSortOrder] = useState<string>("asc")
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Estados para diálogos
@@ -70,40 +77,14 @@ export default function DashboardPage() {
     // no-op
   }, [tasks])
 
-  // Filter tasks based on search and filters
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch =
-      task.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.providerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.courierName?.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesStatus = statusFilter === "all" || task.status === statusFilter
-    const matchesType = typeFilter === "all" || task.type === typeFilter
-
-    return matchesSearch && matchesStatus && matchesType
-  })
+  // Filter and sort tasks
+  const filteredTasks = filterTasks(tasks, searchQuery, statusFilter, typeFilter)
+  const sortedTasks = sortTasks(filteredTasks, sortBy, sortOrder)
 
   // Calculate task statistics
-  const totalTasks = tasks.length
-  const pendingTasks = tasks.filter(task => task.status === "PENDING").length
-  const pendingConfirmationTasks = tasks.filter(task => task.status === "PENDING_CONFIRMATION").length
-  const confirmedTasks = tasks.filter(task => task.status === "CONFIRMED").length
-  const completedTasks = tasks.filter(task => task.status === "COMPLETED").length
+  const stats = calculateTaskStats(tasks)
 
   // Debug logs removed
-
-  const handleExportTasks = () => {
-    exportTasksToExcel(sortedTasks as any[])
-  }
-
-  const handleExportAllTasks = () => {
-    exportAllTasksToExcel(tasks as any[])
-  }
-
-  // State for sorting
-  const [sortBy, setSortBy] = useState<string>("createdAt")
-  const [sortOrder, setSortOrder] = useState<string>("desc")
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -114,71 +95,16 @@ export default function DashboardPage() {
     }
   }
 
-  const getSortIcon = (field: string) => {
-    if (sortBy !== field) {
-      return <ArrowUpDown className="h-4 w-4" />
-    }
-    return sortOrder === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-  }
+  const handleExportTasks = () => exportTasksToExcel(sortedTasks as any[])
+  const handleExportAllTasks = () => exportAllTasksToExcel(tasks as any[])
 
-  // Apply sorting to filtered tasks
-  const sortedTasks = filteredTasks.sort((a, b) => {
-    let aValue: any
-    let bValue: any
-
-    switch (sortBy) {
-      case "createdAt":
-        aValue = new Date(a.createdAt).getTime()
-        bValue = new Date(b.createdAt).getTime()
-        break
-      case "scheduledDate":
-        aValue = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0
-        bValue = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0
-        break
-      case "referenceNumber":
-        aValue = a.referenceNumber || ""
-        bValue = b.referenceNumber || ""
-        break
-      case "status":
-        aValue = a.status
-        bValue = b.status
-        break
-      case "priority":
-        aValue = a.priority || "NORMAL"
-        bValue = b.priority || "NORMAL"
-        break
-      default:
-        aValue = new Date(a.createdAt).getTime()
-        bValue = new Date(b.createdAt).getTime()
-    }
-
-    if (sortOrder === "asc") {
-      return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
-    } else {
-      return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
-    }
-  })
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      PENDING: { variant: "secondary" as const, label: "Pendiente", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
-      PENDING_CONFIRMATION: { variant: "secondary" as const, label: "Pendiente Confirmación", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-      CONFIRMED: { variant: "default" as const, label: "Confirmada", className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" },
-      COMPLETED: { variant: "default" as const, label: "Finalizada", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-      CANCELLED: { variant: "destructive" as const, label: "Cancelada", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" }
-    }
-    return statusConfig[status as keyof typeof statusConfig] || { variant: "outline" as const, label: status, className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400" }
-  }
-
-  const getPriorityBadge = (priority: string) => {
-    const priorityConfig = {
-      URGENT: { variant: "destructive" as const, label: "Urgente", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-      HIGH: { variant: "secondary" as const, label: "Alta", className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" },
-      NORMAL: { variant: "default" as const, label: "Normal", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-      LOW: { variant: "outline" as const, label: "Baja", className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400" }
-    }
-    return priorityConfig[priority as keyof typeof priorityConfig] || { variant: "outline" as const, label: priority, className: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400" }
-  }
+  const statsCards = [
+    { title: t.dashboard.totalTasks, value: stats.totalTasks, icon: Package, description: "Todas las tareas" },
+    { title: "Pendientes", value: stats.pendingTasks, icon: AlertCircle, iconColor: "text-yellow-600 dark:text-yellow-500", iconBgColor: "bg-yellow-500/10", description: "Esperando acción" },
+    { title: "Pendiente Confirmación", value: stats.pendingConfirmationTasks, icon: Clock, iconColor: "text-blue-600 dark:text-blue-500", iconBgColor: "bg-blue-500/10", description: "Esperando confirmación" },
+    { title: "Confirmadas", value: stats.confirmedTasks, icon: PlayCircle, iconColor: "text-purple-600 dark:text-purple-500", iconBgColor: "bg-purple-500/10", description: "Listas para ejecutar" },
+    { title: "Finalizadas", value: stats.completedTasks, icon: CheckCircle, iconColor: "text-green-600 dark:text-green-500", iconBgColor: "bg-green-500/10", description: "Finalizadas" }
+  ]
 
   // Función para manejar la eliminación de tareas
   const handleDeleteTask = (taskId: string) => {
@@ -218,30 +144,8 @@ export default function DashboardPage() {
     })
   }
 
-  if (isLoading || tasksLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Cargando...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (tasksError) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <Alert variant="destructive" className="max-w-md">
-            <AlertDescription>
-              Error al cargar las tareas. Por favor, intenta de nuevo.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </div>
-    )
-  }
+  if (isLoading || tasksLoading) return <LoadingState />
+  if (tasksError) return <ErrorState message="Error al cargar las tareas. Por favor, intenta de nuevo." />
 
   if (role !== "orgadmin") {
     return null
@@ -253,9 +157,9 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.dashboard.title}</h1>
           <p className="text-muted-foreground">
-            Resumen de tareas y estadísticas de tu organización
+            {t.dashboard.overview}
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -270,80 +174,14 @@ export default function DashboardPage() {
           <Link to="/dashboard/tasks/new">
             <Button size="sm" className="gap-2">
               <Plus className="h-4 w-4" />
-              Nueva Tarea
+              {t.common.create}
             </Button>
           </Link>
         </div>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tareas</CardTitle>
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Package className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{totalTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">Todas las tareas</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-            <div className="p-2 bg-yellow-500/10 rounded-lg">
-              <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{pendingTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">Esperando acción</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendiente Confirmación</CardTitle>
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{pendingConfirmationTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">Esperando confirmación</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confirmadas</CardTitle>
-            <div className="p-2 bg-purple-500/10 rounded-lg">
-              <PlayCircle className="h-4 w-4 text-purple-600 dark:text-purple-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{confirmedTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">Listas para ejecutar</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Finalizadas</CardTitle>
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{completedTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">Finalizadas</p>
-          </CardContent>
-        </Card>
-
-      </div>
+      <TaskStatsCards cards={statsCards} />
 
       {/* Tasks Table */}
       <div className="space-y-4">
@@ -360,7 +198,7 @@ export default function DashboardPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Buscar por referencia, cliente, proveedor o cadete..."
+                  placeholder={t.dashboard.searchPlaceholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -368,7 +206,7 @@ export default function DashboardPage() {
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Filtrar por estado" />
+                  <SelectValue placeholder={`${t.dashboard.filterBy} ${t.dashboard.status}`} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los Estados</SelectItem>
@@ -381,7 +219,7 @@ export default function DashboardPage() {
               </Select>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Filtrar por tipo" />
+                  <SelectValue placeholder={`${t.dashboard.filterBy} ${t.dashboard.type}`} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los Tipos</SelectItem>
@@ -391,120 +229,15 @@ export default function DashboardPage() {
               </Select>
             </div>
 
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 select-none"
-                    onClick={() => handleSort("referenceNumber")}
-                  >
-                    <div className="flex items-center gap-2">
-                      Referencia
-                      {getSortIcon("referenceNumber")}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 select-none"
-                    onClick={() => handleSort("type")}
-                  >
-                    <div className="flex items-center gap-2">
-                      Tipo
-                      {getSortIcon("type")}
-                    </div>
-                  </TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Proveedor</TableHead>
-                  <TableHead>Cadete</TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 select-none"
-                    onClick={() => handleSort("status")}
-                  >
-                    <div className="flex items-center gap-2">
-                      Estado
-                      {getSortIcon("status")}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 select-none"
-                    onClick={() => handleSort("priority")}
-                  >
-                    <div className="flex items-center gap-2">
-                      Prioridad
-                      {getSortIcon("priority")}
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 select-none"
-                    onClick={() => handleSort("scheduledDate")}
-                  >
-                    <div className="flex items-center gap-2">
-                      Programada
-                      {getSortIcon("scheduledDate")}
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedTasks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      {searchQuery ? "No se encontraron tareas con ese criterio" : "No hay tareas registradas"}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sortedTasks.map((task) => {
-                    const statusConfig = getStatusBadge(task.status)
-                    const priorityConfig = getPriorityBadge(task.priority)
-                    
-                    return (
-                      <TableRow key={task.id}>
-                        <TableCell className="font-medium">{task.referenceNumber || "-"}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {task.type === 'RETIRE' ? 'Retiro' : 'Entrega'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{task.clientName || "-"}</TableCell>
-                        <TableCell>{task.providerName || "-"}</TableCell>
-                        <TableCell>{task.courierName || "-"}</TableCell>
-                        <TableCell>
-                          <Badge variant={statusConfig.variant} className={statusConfig.className}>
-                            {statusConfig.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={priorityConfig.variant} className={priorityConfig.className}>
-                            {priorityConfig.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{task.scheduledDate || "-"}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-1 justify-end">
-                            <Link to={`/dashboard/tasks/${task.id}`}>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Ver Detalles">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleDeleteTask(task.id)}
-                              title="Eliminar Tarea"
-                              disabled={isDeleting}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
+            <TaskTable
+              tasks={sortedTasks}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+              onDelete={(taskId) => handleDeleteTask(taskId)}
+              isLoadingDelete={isDeleting}
+              showActions={true}
+            />
           </CardContent>
         </Card>
       </div>

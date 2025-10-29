@@ -2,30 +2,17 @@ import { useState, useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { Input } from "../components/ui/input"
-import { Textarea } from "../components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { Checkbox } from "../components/ui/checkbox"
-import { Label } from "../components/ui/label"
+import { SearchableSelect } from "../components/ui/searchable-select"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
 import { useClients } from "../hooks/use-clients"
 import { useProviders } from "../hooks/use-providers"
 import { useCouriers } from "../hooks/use-couriers"
 import { SuccessDialog } from "../components/ui/success-dialog"
-import {
-  ArrowLeft,
-  Package,
-  MapPin,
-  Save,
-  X,
-  Copy,
-  Edit,
-  Trash2,
-  AlertTriangle,
-  ImageIcon,
-  Download
-} from "lucide-react"
+import { TaskForm } from "../components/TaskForm"
+import { BasicInfoSection, ContactSelectionSection, AddressSection, CertificatesSection, NotesSection } from "../components/TaskFormSections"
+import { mapStatusToForm, mapPriorityToForm, mapTypeToForm, mapStatusToBackend, mapPriorityToBackend, mapTypeToBackend } from "../lib/task-utils"
+import { ArrowLeft, Save, X, Copy, Edit, Trash2, AlertTriangle, ImageIcon, Download } from "lucide-react"
 
 export default function TaskFormPage() {
   const navigate = useNavigate()
@@ -159,16 +146,10 @@ export default function TaskFormPage() {
     setIsSaving(true)
 
     try {
-      // Convertir el tipo de tarea al formato del backend
-      const taskType = formData.type === "retiro" ? "RETIRE" : "DELIVER"
-      const taskPriority = formData.priority === "urgente" ? "URGENT" : "NORMAL"
-      
-      // Convertir el estado al formato del backend
-      const taskStatus = formData.status === "en_preparacion" ? "PENDING" :
-                        formData.status === "pendiente_confirmar" ? "PENDING_CONFIRMATION" :
-                        formData.status === "confirmada" ? "CONFIRMED" :
-                        formData.status === "finalizada" ? "COMPLETED" :
-                        formData.status === "cancelada" ? "CANCELLED" : "PENDING"
+      // Convertir campos usando utilidades centralizadas
+      const taskType = mapTypeToBackend(formData.type)
+      const taskPriority = mapPriorityToBackend(formData.priority)
+      const taskStatus = mapStatusToBackend(formData.status)
 
       // Preparar datos para actualización, limpiando campos no necesarios
       const taskData: any = {
@@ -180,7 +161,7 @@ export default function TaskFormPage() {
         contact: formData.contact || undefined,
         courierId: formData.courierId === "unassigned" ? undefined : formData.courierId,
         status: taskStatus as 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED',
-        priority: taskPriority as 'NORMAL' | 'URGENT',
+        priority: taskPriority as 'NORMAL' | 'URGENT' | 'LOW' | 'HIGH',
         scheduledDate: formData.scheduledDate || undefined,
         notes: formData.notes || undefined,
         photoRequired: formData.photoRequired,
@@ -220,7 +201,10 @@ export default function TaskFormPage() {
         showSuccess("Tarea Actualizada", "La tarea ha sido actualizada exitosamente.")
       } else {
         // Crear nueva tarea
-        await createTask(taskData)
+        const payload = { organizationId: organizationId!, ...taskData }
+        // Depuración: ver payload exacto
+        console.log('CreateTask payload:', JSON.stringify(payload, null, 2))
+        await createTask(payload)
         showSuccess("Tarea Creada", "La tarea ha sido creada exitosamente.")
       }
 
@@ -349,12 +333,8 @@ export default function TaskFormPage() {
         referenceBL: currentTask.referenceNumber || "",
         contactType: currentTask.clientId ? "client" : "provider",
         contactId: currentTask.clientId || currentTask.providerId || "",
-        type: currentTask.type === "RETIRE" ? "retiro" : "entrega",
-        status: currentTask.status === "PENDING" ? "en_preparacion" : 
-                currentTask.status === "PENDING_CONFIRMATION" ? "pendiente_confirmar" :
-                currentTask.status === "CONFIRMED" ? "confirmada" :
-                currentTask.status === "COMPLETED" ? "finalizada" :
-                currentTask.status === "CANCELLED" ? "cancelada" : "en_preparacion",
+        type: mapTypeToForm(currentTask.type),
+        status: mapStatusToForm(currentTask.status),
         scheduledDate: currentTask.scheduledDate ? new Date(currentTask.scheduledDate).toISOString().split('T')[0] : "",
         address: currentTask.addressOverride || "",
         city: currentTask.city || "",
@@ -362,7 +342,7 @@ export default function TaskFormPage() {
         contact: currentTask.contact || "",
         courierId: currentTask.courierId || "unassigned",
         notes: currentTask.notes || "",
-        priority: currentTask.priority === "URGENT" ? "urgente" : "normal",
+        priority: mapPriorityToForm(currentTask.priority),
         photoRequired: currentTask.photoRequired || false,
         mbl: currentTask.mbl || "",
         hbl: currentTask.hbl || "",
@@ -504,353 +484,64 @@ export default function TaskFormPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main Form */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Basic Information */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Información Básica
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="referenceBL" className="text-sm font-medium text-muted-foreground">Referencia Vexa *</label>
-                    <Input
-                      id="referenceBL"
-                      value={formData.referenceBL}
-                      onChange={(e) => handleInputChange("referenceBL", e.target.value)}
-                      className="mt-1"
-                      required
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Tipo de Tarea *</label>
-                    <Select value={formData.type} onValueChange={(value) => handleInputChange("type", value)} disabled={!isEditing}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="retiro">Retiro</SelectItem>
-                        <SelectItem value="entrega">Entrega</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Estado *</label>
-                    <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)} disabled={!isEditing}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="en_preparacion">En Preparación</SelectItem>
-                        <SelectItem value="pendiente_confirmar">Pendiente Confirmación</SelectItem>
-                        <SelectItem value="confirmada">Confirmada</SelectItem>
-                        <SelectItem value="finalizada">Finalizada</SelectItem>
-                        <SelectItem value="cancelada">Cancelada</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label htmlFor="scheduledDate" className="text-sm font-medium text-muted-foreground">Fecha Programada *</label>
-                    <Input
-                      id="scheduledDate"
-                      type="date"
-                      value={formData.scheduledDate}
-                      onChange={(e) => handleInputChange("scheduledDate", e.target.value)}
-                      className="mt-1"
-                      required
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Prioridad</label>
-                    <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)} disabled={!isEditing}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="baja">Baja</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="alta">Alta</SelectItem>
-                        <SelectItem value="urgente">Urgente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Photo Required Checkbox */}
-                <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/30">
-                  <Checkbox
-                    id="photoRequired"
-                    checked={formData.photoRequired}
-                    onCheckedChange={(checked) => handleInputChange("photoRequired", checked as boolean)}
-                    disabled={!isEditing}
-                  />
-                  <Label
-                    htmlFor="photoRequired"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    Foto obligatoria al finalizar tarea
-                    <span className="block text-xs text-muted-foreground font-normal mt-1">
-                      {formData.type === "entrega"
-                        ? "Recomendado para entregas (marcado por defecto)"
-                        : "Opcional para retiros (desmarcado por defecto)"}
-                    </span>
-                  </Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Contact Selection */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Selección de Contacto
-                </CardTitle>
-                <CardDescription>Selecciona el tipo de contacto y el contacto específico</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Tipo de Contacto *</label>
-                  <Select value={formData.contactType} onValueChange={(value) => handleInputChange("contactType", value)} disabled={!isEditing}>
-                    <SelectTrigger aria-label="Tipo de Contacto" className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="client">Cliente</SelectItem>
-                      <SelectItem value="provider">Proveedor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    {formData.contactType === "client" ? "Cliente" : "Proveedor"} *
-                  </label>
-                  <Select
-                    value={formData.contactId}
-                    onValueChange={(value) => {
-                      if (formData.contactType === "client") {
-                        handleClientChange(value)
-                      } else {
-                        handleProviderChange(value)
-                      }
-                    }}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger aria-label={formData.contactType === "client" ? "Cliente" : "Proveedor"} className="mt-1">
-                      <SelectValue placeholder={`Selecciona un ${formData.contactType === "client" ? "cliente" : "proveedor"}`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {formData.contactType === "client" ? (
-                        orgClients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        orgProviders.map((provider) => (
-                          <SelectItem key={provider.id} value={provider.id}>
-                            {provider.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Address Information */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  {formData.type === "retiro" ? "Dirección de Recogida" : "Dirección de Entrega"}
-                </CardTitle>
-                <CardDescription>
-                  {formData.type === "retiro"
-                    ? "Ubicación donde se recogerá la documentación"
-                    : "Ubicación donde se entregará la documentación"
-                  }
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-muted-foreground">Dirección *</label>
-                    {formData.contactId && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const contact = formData.contactType === "client" 
-                            ? orgClients.find(c => c.id === formData.contactId)
-                            : orgProviders.find(p => p.id === formData.contactId)
-                          if (contact) {
-                            setFormData(prev => ({
-                              ...prev,
-                              address: contact.address,
-                              city: formData.contactType === "client" ? contact.city : (contact.city || ""),
-                              province: formData.contactType === "client" ? contact.province : (contact.province || ""),
-                              contact: formData.contactType === "client" ? (contact.phoneNumber || "") : (contact.phoneNumber || "")
-                            }))
-                          }
-                        }}
-                        disabled={!isEditing}
-                        className="text-xs"
-                      >
-                        Usar dirección del contacto
-                      </Button>
-                    )}
-                  </div>
-                  <Textarea
-                    value={formData.address}
-                    onChange={(e) => handleInputChange("address", e.target.value)}
-                    className="mt-1"
-                    rows={3}
-                    placeholder={`Ingresa la dirección de ${formData.type === "retiro" ? "recogida" : "entrega"}...`}
-                    required
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
-                    <Input
-                      value={formData.city}
-                      onChange={(e) => handleInputChange("city", e.target.value)}
-                      className="mt-1"
-                      placeholder="Ciudad"
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Provincia</label>
-                    <Input
-                      value={formData.province}
-                      onChange={(e) => handleInputChange("province", e.target.value)}
-                      className="mt-1"
-                      placeholder="Provincia"
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Contacto</label>
-                    <Input
-                      value={formData.contact}
-                      onChange={(e) => handleInputChange("contact", e.target.value)}
-                      className="mt-1"
-                      placeholder="Persona de contacto"
-                      disabled={!isEditing}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Certificates */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle>Certificados</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">MBL</label>
-                    <Input
-                      value={formData.mbl}
-                      onChange={(e) => handleInputChange("mbl", e.target.value)}
-                      className="mt-1"
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">HBL</label>
-                    <Input
-                      value={formData.hbl}
-                      onChange={(e) => handleInputChange("hbl", e.target.value)}
-                      className="mt-1"
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="freightCert"
-                      checked={formData.freightCert}
-                      onCheckedChange={(checked) => handleInputChange("freightCert", checked as boolean)}
-                      disabled={!isEditing}
-                    />
-                    <Label htmlFor="freightCert" className="text-sm">Certificado de Flete</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="foCert"
-                      checked={formData.foCert}
-                      onCheckedChange={(checked) => handleInputChange("foCert", checked as boolean)}
-                      disabled={!isEditing}
-                    />
-                    <Label htmlFor="foCert" className="text-sm">Certificado FO</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="bunkerCert"
-                      checked={formData.bunkerCert}
-                      onCheckedChange={(checked) => handleInputChange("bunkerCert", checked as boolean)}
-                      disabled={!isEditing}
-                    />
-                    <Label htmlFor="bunkerCert" className="text-sm">Certificado de Combustible</Label>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Notas */}
-            <Card className="border">
-              <CardHeader>
-                <CardTitle>Notas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={formData.notes}
-                  onChange={(e) => handleInputChange("notes", e.target.value)}
-                  className="mt-1"
-                  rows={4}
-                  placeholder="Agrega notas adicionales..."
-                  disabled={!isEditing}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Notas del Courier - Solo en modo visualización */}
-            {!isEditing && currentTask?.courierNotes && (
-              <Card className="border">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5" />
-                    Notas del Courier
-                  </CardTitle>
-                  <CardDescription>
-                    Notas agregadas por el courier durante la entrega
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
-                      {currentTask.courierNotes}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+        {isEditing ? (
+          <TaskForm
+            formData={formData}
+            clients={orgClients || []}
+            providers={orgProviders || []}
+            couriers={orgCouriers || []}
+            onInputChange={handleInputChange}
+            onClientChange={handleClientChange}
+            onProviderChange={handleProviderChange}
+            mode={id ? 'edit' : 'create'}
+          />
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Main Form (View) */}
+            <div className="lg:col-span-2 space-y-6">
+              <BasicInfoSection formData={formData} onInputChange={handleInputChange} disabled />
+              <ContactSelectionSection
+                formData={formData}
+                clients={orgClients}
+                providers={orgProviders}
+                contactType={formData.contactType as 'client' | 'provider'}
+                onInputChange={handleInputChange}
+                onClientChange={handleClientChange}
+                onProviderChange={handleProviderChange}
+                disabled
+              />
+              <AddressSection 
+                formData={formData}
+                clients={orgClients}
+                providers={orgProviders}
+                onInputChange={handleInputChange}
+                contactType={formData.contactType as 'client' | 'provider'}
+                contactId={formData.contactId}
+                disabled
+              />
+              <CertificatesSection formData={formData} onInputChange={handleInputChange} disabled />
+              <NotesSection formData={formData} onInputChange={handleInputChange} disabled />
+              {!isEditing && currentTask?.courierNotes && (
+                <Card className="border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5" />
+                      Notas del Courier
+                    </CardTitle>
+                    <CardDescription>
+                      Notas agregadas por el courier durante la entrega
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+                        {currentTask.courierNotes}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
@@ -861,19 +552,20 @@ export default function TaskFormPage() {
                 <CardDescription>Selecciona el courier (opcional)</CardDescription>
               </CardHeader>
               <CardContent>
-                <Select value={formData.courierId} onValueChange={(value) => handleInputChange("courierId", value)} disabled={!isEditing}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un courier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Sin asignar</SelectItem>
-                    {orgCouriers.map((courier) => (
-                      <SelectItem key={courier.id} value={courier.id}>
-                        {courier.name} - {courier.phoneNumber}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={formData.courierId}
+                  onValueChange={(value) => handleInputChange("courierId", value)}
+                  items={[
+                    { id: "unassigned", name: "Sin asignar" },
+                    ...orgCouriers.map(courier => ({ 
+                      id: courier.id, 
+                      name: `${courier.name} - ${courier.phoneNumber}` 
+                    }))
+                  ]}
+                  placeholder="Buscar y seleccionar courier..."
+                  disabled={!isEditing}
+                  ariaLabel="Courier"
+                />
               </CardContent>
             </Card>
 
@@ -957,6 +649,7 @@ export default function TaskFormPage() {
             )}
           </div>
         </div>
+        )}
       </form>
 
       {/* Success Dialog */}

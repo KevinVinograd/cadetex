@@ -13,6 +13,9 @@ import {
   Plus,
   AlertCircle
 } from "lucide-react"
+import { getTranslation } from "../lib/translations"
+
+const t = getTranslation()
 
 export default function NewProviderPage() {
   const navigate = useNavigate()
@@ -50,7 +53,7 @@ export default function NewProviderPage() {
 
   const handleCreateProvider = async () => {
     if (!organizationId || !formData.name || !formData.address || !formData.city || !formData.province) {
-      setCreateError("Por favor completa todos los campos obligatorios")
+      setCreateError(t.forms.completeAllFields)
       return
     }
 
@@ -68,14 +71,14 @@ export default function NewProviderPage() {
         email: formData.email || undefined
       })
 
-      showSuccess("Proveedor Creado", "El proveedor ha sido creado exitosamente.")
+      showSuccess(t.forms.providerCreated, t.forms.providerCreatedDesc)
       
       // Navegar de vuelta a la lista después de 1.5 segundos
       setTimeout(() => {
         navigate("/dashboard/providers")
       }, 1500)
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Error al crear proveedor")
+      setCreateError(err instanceof Error ? err.message : t.forms.errorCreatingProvider)
       console.error("Failed to create provider:", err)
     } finally {
       setIsSaving(false)
@@ -121,7 +124,7 @@ export default function NewProviderPage() {
             disabled={isSaving || !formData.name || !formData.address || !formData.city || !formData.province}
             className="bg-green-600 hover:bg-green-700"
           >
-            {isSaving ? "Creando..." : "Crear Proveedor"}
+            {isSaving ? t.forms.creating : t.forms.createProvider}
           </Button>
           <Button 
             variant="outline" 
@@ -140,7 +143,7 @@ export default function NewProviderPage() {
         <div className="flex items-center gap-2">
           <Plus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-            Modo de creación activo - Completa la información del proveedor y haz clic en "Crear Proveedor" para confirmar o "Cancelar" para descartar
+            {t.forms.creationMode}
           </p>
         </div>
       </div>

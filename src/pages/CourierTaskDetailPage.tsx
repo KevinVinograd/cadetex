@@ -7,10 +7,13 @@ import { Textarea } from "../components/ui/textarea"
 import { Label } from "../components/ui/label"
 import { Input } from "../components/ui/input"
 import { useTasks } from "../hooks/use-tasks"
+import { getTranslation } from "../lib/translations"
+
+const t = getTranslation()
 
 // Helper function to format dates consistently
 const formatDate = (dateString: string | undefined, options?: Intl.DateTimeFormatOptions): string => {
-  if (!dateString) return "No programada"
+  if (!dateString) return t.taskDetail.notScheduled
   
   let date: Date
   if (dateString.includes('T') || dateString.includes('Z')) {
@@ -134,17 +137,17 @@ export default function CourierTaskDetailPage() {
   
   // Get the relevant address based on task type
   const getTaskAddress = () => {
-    return task?.addressOverride || "Sin dirección especificada"
+    return task?.addressOverride || t.taskDetail.noAddress
   }
   
   // Get the relevant contact based on task type
   const getTaskContact = () => {
-    return task?.contact || "Sin contacto especificado"
+    return task?.contact || t.taskDetail.noContact
   }
   
   // Get the relevant city based on task type
   const getTaskCity = () => {
-    return task?.city || "Sin ciudad especificada"
+    return task?.city || t.taskDetail.noCity
   }
 
   // Function to download the receipt photo
@@ -390,6 +393,85 @@ export default function CourierTaskDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Documents and Certificates */}
+          {(task.freightCert || task.foCert || task.bunkerCert || task.hbl || task.mbl) && (
+            <Card className="border border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-400">
+                  <Package className="h-5 w-5" />
+                  Documentos y Certificados
+                </CardTitle>
+                <CardDescription className="text-blue-700 dark:text-blue-300">
+                  Información de documentos requeridos para esta tarea
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {/* MBL and HBL */}
+                  {(task.mbl || task.hbl) && (
+                    <div className="space-y-2">
+                      {task.mbl && (
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-blue-100/50 dark:bg-blue-900/20">
+                          <CheckCircle2 className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-blue-700 dark:text-blue-400">MBL</p>
+                            <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                              {task.mbl}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {task.hbl && (
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-blue-100/50 dark:bg-blue-900/20">
+                          <CheckCircle2 className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-blue-700 dark:text-blue-400">HBL</p>
+                            <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                              {task.hbl}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Certificates */}
+                  {(task.freightCert || task.foCert || task.bunkerCert) && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wide">
+                        Certificados Requeridos
+                      </p>
+                      {task.freightCert && (
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-blue-100/50 dark:bg-blue-900/20">
+                          <CheckCircle2 className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                            Certificado de Flete
+                          </span>
+                        </div>
+                      )}
+                      {task.foCert && (
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-blue-100/50 dark:bg-blue-900/20">
+                          <CheckCircle2 className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                            Certificación de FOB
+                          </span>
+                        </div>
+                      )}
+                      {task.bunkerCert && (
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-blue-100/50 dark:bg-blue-900/20">
+                          <CheckCircle2 className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                            Certificación de BUNKER
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notes */}
           <Card className="border">

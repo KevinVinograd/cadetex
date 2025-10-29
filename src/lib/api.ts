@@ -200,6 +200,7 @@ class ApiService {
     this.token = response.token;
     localStorage.setItem('authToken', response.token);
     localStorage.setItem('user', JSON.stringify(response.user));
+    localStorage.setItem('tokenTimestamp', Date.now().toString());
     
     return response;
   }
@@ -227,6 +228,7 @@ class ApiService {
     this.token = null;
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('tokenTimestamp');
   }
 
   // Métodos de organizaciones
@@ -409,6 +411,10 @@ class ApiService {
 
   async getTasksByCourier(courierId: string): Promise<any[]> {
     return this.request<any[]>(`/tasks/courier/${courierId}`);
+  }
+
+  async getUnassignedTasks(_organizationId: string): Promise<any[]> {
+    return this.request<any[]>(`/tasks/filtered?unassigned=true&status=CONFIRMED&status=COMPLETED`);
   }
 
   async updateTaskStatus(taskId: string, status: string): Promise<any> {

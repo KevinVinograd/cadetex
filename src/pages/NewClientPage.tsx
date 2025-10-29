@@ -13,6 +13,9 @@ import {
   Plus,
   AlertCircle
 } from "lucide-react"
+import { getTranslation } from "../lib/translations"
+
+const t = getTranslation()
 
 export default function NewClientPage() {
   const navigate = useNavigate()
@@ -50,7 +53,7 @@ export default function NewClientPage() {
 
   const handleCreateClient = async () => {
     if (!organizationId || !formData.name || !formData.address || !formData.city || !formData.province) {
-      setCreateError("Por favor completa todos los campos obligatorios")
+      setCreateError(t.forms.completeAllFields)
       return
     }
 
@@ -69,14 +72,14 @@ export default function NewClientPage() {
         isActive: formData.isActive
       })
 
-      showSuccess("Cliente Creado", "El cliente ha sido creado exitosamente.")
+      showSuccess(t.forms.clientCreated, t.forms.clientCreatedDesc)
       
       // Navegar de vuelta a la lista después de 1.5 segundos
       setTimeout(() => {
         navigate("/dashboard/clients")
       }, 1500)
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Error al crear cliente")
+      setCreateError(err instanceof Error ? err.message : t.forms.errorCreatingClient)
       console.error("Failed to create client:", err)
     } finally {
       setIsSaving(false)

@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isInitialized = useRef(false)
     const lastValidationTime = useRef(0)
     const VALIDATION_COOLDOWN = 30000 // 30 segundos
+    const TOKEN_EXPIRY_TIME = 24 * 60 * 60 * 1000 // 1 día en milisegundos
 
     useEffect(() => {
         const initializeAuth = async () => {
@@ -39,8 +40,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const token = localStorage.getItem('authToken')
                 const role = localStorage.getItem('userRole') as AuthState["role"]
                 const email = localStorage.getItem('userEmail')
+                const tokenTimestamp = localStorage.getItem('tokenTimestamp')
 
-                
+                // Verificar si el token ha expirado (1 día)
+                if (tokenTimestamp) {
+                    const now = Date.now()
+                    const tokenAge = now - parseInt(tokenTimestamp, 10)
+                    if (tokenAge > TOKEN_EXPIRY_TIME) {
+                        console.warn("Token expired, logging out")
+                        apiService.logout()
+                        localStorage.removeItem('userRole')
+                        localStorage.removeItem('userEmail')
+                        localStorage.removeItem('userName')
+                        localStorage.removeItem('userOrganizationId')
+                        setState({ role: null, email: null, organizationId: null, isLoading: false, user: null })
+                        return
+                    }
+                }
 
                 if (token && role && email) {
                     // Solo validar si han pasado más de 30 segundos desde la última validación
@@ -160,6 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('userEmail')
         localStorage.removeItem('userName')
         localStorage.removeItem('userOrganizationId')
+        localStorage.removeItem('tokenTimestamp')
+        // No eliminar rememberedEmail y rememberedPassword aquí para que el usuario pueda mantenerlos
         setState({ role: null, email: null, organizationId: null, isLoading: false, user: null })
     }
 

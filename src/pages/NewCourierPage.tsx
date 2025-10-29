@@ -15,6 +15,9 @@ import {
   Save,
   X
 } from "lucide-react"
+import { getTranslation } from "../lib/translations"
+
+const t = getTranslation()
 
 export default function NewCourierPage() {
   const navigate = useNavigate()
@@ -43,7 +46,7 @@ export default function NewCourierPage() {
       
       
       
-      alert("Courier creado exitosamente!")
+      alert(t.forms.courierCreated)
       navigate("/dashboard/couriers")
     } catch (error) {
       console.error('Error creating courier:', error)
@@ -87,7 +90,7 @@ export default function NewCourierPage() {
             disabled={isSaving}
           >
             <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Guardando..." : "Crear Courier"}
+            {isSaving ? t.forms.saving : t.forms.createCourier}
           </Button>
         </div>
       </div>
@@ -162,7 +165,7 @@ export default function NewCourierPage() {
                     value={formData.address}
                     onChange={(e) => handleInputChange("address", e.target.value)}
                     className="mt-1"
-                    placeholder="Ingresa la dirección completa..."
+                    placeholder={t.forms.addressPlaceholder}
                     rows={3}
                     required
                   />
@@ -184,7 +187,7 @@ export default function NewCourierPage() {
                     onChange={(e) => handleInputChange("notes", e.target.value)}
                     className="mt-1"
                     rows={4}
-                    placeholder="Agrega notas adicionales sobre este courier..."
+                    placeholder={t.forms.notesPlaceholder}
                   />
                 </div>
               </CardContent>
