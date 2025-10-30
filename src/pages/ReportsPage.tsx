@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
+import { formatAddress } from "../lib/address-utils"
 import { Download, BarChart3, Users, ClipboardList, Clock } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid } from 'recharts'
 
@@ -134,7 +135,7 @@ export default function ReportsPage() {
       const rows = filteredTasks.map(t => [
         t.id, t.referenceNumber || "", t.type, t.status, t.priority, t.scheduledDate || "",
         t.clientName || "", t.providerName || "", t.courierName || "",
-        t.addressOverride || "", t.city || "", t.province || "",
+        (t.address ? formatAddress(t.address) : (t.addressOverride || "")), t.address?.city || t.city || "", t.address?.province || t.province || "",
         t.createdAt, t.updatedAt
       ])
       const csv = [headers, ...rows].map(r => r.map(v => typeof v === "string" && v.includes(",") ? `"${v.replaceAll('"','""')}"` : v).join(",")).join("\n")

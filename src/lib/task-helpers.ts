@@ -1,10 +1,15 @@
 import { getStatusBadge, getPriorityBadge } from "./task-badges"
+import { formatAddress } from "./address-utils"
 
 // Export badge helpers for use in pages
 export { getStatusBadge, getPriorityBadge }
 
 // Task data getters
 export function getTaskAddress(task: any): string {
+  if (task?.address) {
+    return formatAddress(task.address)
+  }
+  // Fallback para compatibilidad con datos antiguos
   return task?.addressOverride || "Sin dirección especificada"
 }
 
@@ -13,6 +18,10 @@ export function getTaskContact(task: any): string {
 }
 
 export function getTaskCity(task: any): string {
+  if (task?.address?.city) {
+    return task.address.city
+  }
+  // Fallback para compatibilidad con datos antiguos
   return task?.city || ""
 }
 

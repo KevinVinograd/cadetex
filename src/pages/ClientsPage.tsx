@@ -12,6 +12,7 @@ import { Loader2, Plus, Search, Eye, Trash2, ArrowLeft } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
 import { getTranslation } from "../lib/translations"
+import { formatAddress, getCity } from "../lib/address-utils"
 
 const t = getTranslation()
 
@@ -66,11 +67,20 @@ export default function ClientsPage() {
   const orgClients = organizationId ? getClientsByOrganization(organizationId) : []
 
   const filteredClients = orgClients.filter((client) => {
+    const addrStr = formatAddress(client.address, {
+      street: client.street,
+      streetNumber: client.streetNumber,
+      addressComplement: client.addressComplement,
+      city: client.city,
+      province: client.province,
+    })
+    const cityStr = getCity(client.address, { city: client.city })
+    const q = searchQuery.toLowerCase()
     const matchesSearch =
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.email?.toLowerCase().includes(searchQuery.toLowerCase())
+      client.name.toLowerCase().includes(q) ||
+      addrStr.toLowerCase().includes(q) ||
+      cityStr.toLowerCase().includes(q) ||
+      (client.email?.toLowerCase().includes(q) ?? false)
 
     return matchesSearch
   })
@@ -225,8 +235,8 @@ export default function ClientsPage() {
                 filteredClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
-                    <TableCell>{client.address}</TableCell>
-                    <TableCell>{client.city}</TableCell>
+                    <TableCell>{formatAddress(client.address, { street: client.street, streetNumber: client.streetNumber, addressComplement: client.addressComplement })}</TableCell>
+                    <TableCell>{getCity(client.address, { city: client.city })}</TableCell>
                     <TableCell>{client.phoneNumber || "N/A"}</TableCell>
                     <TableCell>{client.email || "N/A"}</TableCell>
                     <TableCell>

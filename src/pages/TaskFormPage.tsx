@@ -12,6 +12,7 @@ import { SuccessDialog } from "../components/ui/success-dialog"
 import { TaskForm } from "../components/TaskForm"
 import { BasicInfoSection, ContactSelectionSection, AddressSection, CertificatesSection, NotesSection } from "../components/TaskFormSections"
 import { mapStatusToForm, mapPriorityToForm, mapTypeToForm, mapStatusToBackend, mapPriorityToBackend, mapTypeToBackend } from "../lib/task-utils"
+import { parseAddress } from "../lib/address-parser"
 import { ArrowLeft, Save, X, Copy, Edit, Trash2, AlertTriangle, ImageIcon, Download } from "lucide-react"
 
 export default function TaskFormPage() {
@@ -59,7 +60,9 @@ export default function TaskFormPage() {
     type: "entrega",
     status: "en_preparacion",
     scheduledDate: new Date().toISOString().split('T')[0],
-    address: "",
+    street: "",
+    streetNumber: "",
+    addressComplement: "",
     city: "",
     province: "",
     contact: "",
@@ -74,6 +77,16 @@ export default function TaskFormPage() {
     bunkerCert: false
   })
 
+  // Trackear si el usuario modificó manualmente los campos de dirección
+  const [manualAddressFields, setManualAddressFields] = useState({
+    street: false,
+    streetNumber: false,
+    addressComplement: false,
+    city: false,
+    province: false,
+    contact: false
+  })
+
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => {
       const updates: any = { [field]: value }
@@ -81,6 +94,11 @@ export default function TaskFormPage() {
       // Auto-set photoRequired based on task type
       if (field === "type") {
         updates.photoRequired = value === "entrega"
+      }
+
+      // Marcar como modificado manualmente si el usuario cambia estos campos
+      if (field === "street" || field === "streetNumber" || field === "addressComplement" || field === "city" || field === "province" || field === "contact") {
+        setManualAddressFields(prev => ({ ...prev, [field]: true }))
       }
 
       return { ...prev, ...updates }
@@ -108,30 +126,80 @@ export default function TaskFormPage() {
   const handleClientChange = (clientId: string) => {
     const client = orgClients.find(c => c.id === clientId)
     if (client) {
+      // Manejar address como objeto AddressObject o string legacy
+      let parsed
+      if (typeof client.address === 'object' && client.address) {
+        // Address es un objeto normalizado
+        parsed = {
+          street: client.address.street || "",
+          streetNumber: client.address.streetNumber || "",
+          addressComplement: client.address.addressComplement || ""
+        }
+      } else {
+        // Address es un string legacy, parsearlo
+        parsed = parseAddress(client.address || "")
+      }
+      
       setFormData(prev => ({
         ...prev,
         contactId: clientId,
-        // Solo autocompletar si no hay address_override
-        address: prev.address || client.address,
-        city: prev.city || client.city,
-        province: prev.province || client.province,
-        contact: prev.contact || client.phoneNumber || ""
+        // Auto-completar dirección solo si no fue modificada manualmente
+        street: manualAddressFields.street ? prev.street : parsed.street,
+        streetNumber: manualAddressFields.streetNumber ? prev.streetNumber : parsed.streetNumber,
+        addressComplement: manualAddressFields.addressComplement ? prev.addressComplement : parsed.addressComplement,
+        city: manualAddressFields.city ? prev.city : (typeof client.address === 'object' && client.address?.city) || (client.city || ""),
+        province: manualAddressFields.province ? prev.province : (typeof client.address === 'object' && client.address?.province) || (client.province || ""),
+        contact: manualAddressFields.contact ? prev.contact : (client.phoneNumber || "")
       }))
+      // Resetear los flags de modificación manual cuando se cambia el contacto
+      setManualAddressFields({
+        street: false,
+        streetNumber: false,
+        addressComplement: false,
+        city: false,
+        province: false,
+        contact: false
+      })
     }
   }
 
   const handleProviderChange = (providerId: string) => {
     const provider = orgProviders.find(p => p.id === providerId)
     if (provider) {
+      // Manejar address como objeto AddressObject o string legacy
+      let parsed
+      if (typeof provider.address === 'object' && provider.address) {
+        // Address es un objeto normalizado
+        parsed = {
+          street: provider.address.street || "",
+          streetNumber: provider.address.streetNumber || "",
+          addressComplement: provider.address.addressComplement || ""
+        }
+      } else {
+        // Address es un string legacy, parsearlo
+        parsed = parseAddress(provider.address || "")
+      }
+      
       setFormData(prev => ({
         ...prev,
         contactId: providerId,
-        // Solo autocompletar si no hay address_override
-        address: prev.address || provider.address,
-        city: prev.city || provider.city || "",
-        province: prev.province || provider.province || "",
-        contact: prev.contact || provider.phoneNumber || ""
+        // Auto-completar dirección solo si no fue modificada manualmente
+        street: manualAddressFields.street ? prev.street : parsed.street,
+        streetNumber: manualAddressFields.streetNumber ? prev.streetNumber : parsed.streetNumber,
+        addressComplement: manualAddressFields.addressComplement ? prev.addressComplement : parsed.addressComplement,
+        city: manualAddressFields.city ? prev.city : (typeof provider.address === 'object' && provider.address?.city) || (provider.city || ""),
+        province: manualAddressFields.province ? prev.province : (typeof provider.address === 'object' && provider.address?.province) || (provider.province || ""),
+        contact: manualAddressFields.contact ? prev.contact : (provider.phoneNumber || "")
       }))
+      // Resetear los flags de modificación manual cuando se cambia el contacto
+      setManualAddressFields({
+        street: false,
+        streetNumber: false,
+        addressComplement: false,
+        city: false,
+        province: false,
+        contact: false
+      })
     }
   }
 
@@ -151,13 +219,29 @@ export default function TaskFormPage() {
       const taskPriority = mapPriorityToBackend(formData.priority)
       const taskStatus = mapStatusToBackend(formData.status)
 
+      // Construir objeto Address solo si hay dirección manual (override)
+      // Si no hay clientId/providerId, o si el usuario modificó manualmente los campos, usar addressOverride
+      let addressOverride: any = undefined
+      const hasAddressFields = formData.street || formData.city || formData.province || formData.addressComplement
+      const hasManualModifications = manualAddressFields.street || manualAddressFields.city || manualAddressFields.province || manualAddressFields.addressComplement
+      
+      // Enviar addressOverride si:
+      // 1. No hay clientId/providerId (dirección independiente)
+      // 2. Hay clientId/providerId pero el usuario modificó manualmente los campos (override de dirección del contacto)
+      if (hasAddressFields && (!formData.contactId || hasManualModifications)) {
+        addressOverride = {
+          street: formData.street || undefined,
+          streetNumber: formData.streetNumber || undefined,
+          addressComplement: formData.addressComplement || undefined,
+          city: formData.city || undefined,
+          province: formData.province || undefined
+        }
+      }
+
       // Preparar datos para actualización, limpiando campos no necesarios
       const taskData: any = {
         type: taskType as 'RETIRE' | 'DELIVER',
         referenceNumber: formData.referenceBL,
-        addressOverride: formData.address || undefined,
-        city: formData.city || undefined,
-        province: formData.province || undefined,
         contact: formData.contact || undefined,
         courierId: formData.courierId === "unassigned" ? undefined : formData.courierId,
         status: taskStatus as 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED',
@@ -171,6 +255,11 @@ export default function TaskFormPage() {
         foCert: Boolean(formData.foCert),
         bunkerCert: Boolean(formData.bunkerCert),
         linkedTaskId: undefined
+      }
+      
+      // Incluir addressOverride solo si se construyó
+      if (addressOverride) {
+        taskData.addressOverride = addressOverride
       }
 
       // Solo incluir clientId o providerId, no ambos
@@ -212,9 +301,11 @@ export default function TaskFormPage() {
       setTimeout(() => {
         navigate("/dashboard")
       }, 1500)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving task:', error)
-      showSuccess("Error", `Error ${id ? 'actualizando' : 'creando'} la tarea. Intenta de nuevo.`, "error")
+      // Extraer el mensaje de error del backend
+      const errorMessage = error?.message || `Error ${id ? 'actualizando' : 'creando'} la tarea. Intenta de nuevo.`
+      showSuccess("Error", errorMessage, "error")
     } finally {
       setIsSaving(false)
     }
@@ -228,6 +319,12 @@ export default function TaskFormPage() {
       setIsEditing(false)
       // Resetear el formulario a los datos originales de la tarea
       if (currentTask) {
+        const address = currentTask.address
+        const legacyAddressString = currentTask.addressOverride || ""
+        const parsed = address 
+          ? { street: address.street || "", streetNumber: address.streetNumber || "", addressComplement: address.addressComplement || "" }
+          : parseAddress(legacyAddressString)
+        
         setFormData({
           referenceBL: currentTask.referenceNumber || "",
           contactType: currentTask.clientId ? "client" : "provider",
@@ -239,9 +336,11 @@ export default function TaskFormPage() {
                   currentTask.status === "COMPLETED" ? "finalizada" :
                   currentTask.status === "CANCELLED" ? "cancelada" : "en_preparacion",
           scheduledDate: currentTask.scheduledDate ? new Date(currentTask.scheduledDate).toISOString().split('T')[0] : "",
-          address: currentTask.addressOverride || "",
-          city: currentTask.city || "",
-          province: currentTask.province || "",
+          street: parsed.street,
+          streetNumber: parsed.streetNumber,
+          addressComplement: parsed.addressComplement,
+          city: address?.city || currentTask.city || "",
+          province: address?.province || currentTask.province || "",
           contact: currentTask.contact || "",
           courierId: currentTask.courierId || "unassigned",
           notes: currentTask.notes || "",
@@ -329,6 +428,13 @@ export default function TaskFormPage() {
   // Cargar datos del formulario cuando se carga la tarea
   useEffect(() => {
     if (currentTask && id) {
+      // Usar address object si está disponible, sino fallback a addressOverride legacy
+      const address = currentTask.address
+      const legacyAddressString = currentTask.addressOverride || ""
+      const parsed = address 
+        ? { street: address.street || "", streetNumber: address.streetNumber || "", addressComplement: address.addressComplement || "" }
+        : parseAddress(legacyAddressString)
+      
       setFormData({
         referenceBL: currentTask.referenceNumber || "",
         contactType: currentTask.clientId ? "client" : "provider",
@@ -336,9 +442,11 @@ export default function TaskFormPage() {
         type: mapTypeToForm(currentTask.type),
         status: mapStatusToForm(currentTask.status),
         scheduledDate: currentTask.scheduledDate ? new Date(currentTask.scheduledDate).toISOString().split('T')[0] : "",
-        address: currentTask.addressOverride || "",
-        city: currentTask.city || "",
-        province: currentTask.province || "",
+        street: parsed.street,
+        streetNumber: parsed.streetNumber,
+        addressComplement: parsed.addressComplement,
+        city: address?.city || currentTask.city || "",
+        province: address?.province || currentTask.province || "",
         contact: currentTask.contact || "",
         courierId: currentTask.courierId || "unassigned",
         notes: currentTask.notes || "",
@@ -349,6 +457,15 @@ export default function TaskFormPage() {
         freightCert: currentTask.freightCert || false,
         foCert: currentTask.foCert || false,
         bunkerCert: currentTask.bunkerCert || false
+      })
+      // Resetear flags de modificación manual cuando se carga una tarea existente
+      setManualAddressFields({
+        street: false,
+        streetNumber: false,
+        addressComplement: false,
+        city: false,
+        province: false,
+        contact: false
       })
     }
   }, [currentTask, id])

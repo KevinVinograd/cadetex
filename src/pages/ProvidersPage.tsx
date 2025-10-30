@@ -12,6 +12,7 @@ import { Loader2, Plus, Search, Eye, Trash2, ArrowLeft, AlertCircle } from "luci
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import { SuccessDialog } from "../components/ui/success-dialog"
 import { getTranslation } from "../lib/translations"
+import { formatAddress, getCity } from "../lib/address-utils"
 
 const t = getTranslation()
 
@@ -52,11 +53,20 @@ export default function ProvidersPage() {
   const orgProviders = organizationId ? getProvidersByOrganization(organizationId) : []
 
   const filteredProviders = orgProviders.filter((provider) => {
+    const addrStr = formatAddress(provider.address, {
+      street: provider.street,
+      streetNumber: provider.streetNumber,
+      addressComplement: provider.addressComplement,
+      city: provider.city,
+      province: provider.province,
+    })
+    const cityStr = getCity(provider.address, { city: provider.city })
+    const q = searchQuery.toLowerCase()
     const matchesSearch =
-      provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.email?.toLowerCase().includes(searchQuery.toLowerCase())
+      provider.name.toLowerCase().includes(q) ||
+      addrStr.toLowerCase().includes(q) ||
+      cityStr.toLowerCase().includes(q) ||
+      (provider.email?.toLowerCase().includes(q) ?? false)
 
     return matchesSearch
   })
@@ -175,8 +185,8 @@ export default function ProvidersPage() {
                 filteredProviders.map((provider) => (
                   <TableRow key={provider.id}>
                     <TableCell className="font-medium">{provider.name}</TableCell>
-                    <TableCell>{provider.address}</TableCell>
-                    <TableCell>{provider.city}</TableCell>
+                    <TableCell>{formatAddress(provider.address, { street: provider.street, streetNumber: provider.streetNumber, addressComplement: provider.addressComplement })}</TableCell>
+                    <TableCell>{getCity(provider.address, { city: provider.city })}</TableCell>
                     <TableCell>{provider.phoneNumber || "N/A"}</TableCell>
                     <TableCell>{provider.email || "N/A"}</TableCell>
                     <TableCell>

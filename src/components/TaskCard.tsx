@@ -16,6 +16,17 @@ interface Task {
   clientName?: string
   providerId?: string
   providerName?: string
+  addressOverrideId?: string
+  address?: {
+    id?: string
+    street?: string
+    streetNumber?: string
+    addressComplement?: string
+    city?: string
+    province?: string
+    postalCode?: string
+  }
+  // Legacy fields for backward compatibility
   addressOverride?: string
   city?: string
   province?: string
@@ -81,9 +92,9 @@ export function TaskCard({ task, taskIndex, totalTasks, onFinalize, onUnassign, 
           <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
             <div className="min-w-0 flex-1">
             <p className="text-foreground font-medium">{getTaskAddress(task)}</p>
-            {(task.city || task.province) && (
+            {((task.address?.city || task.address?.province) || (task.city || task.province)) && (
               <p className="text-muted-foreground text-xs mt-1">
-                {[task.city, task.province].filter(Boolean).join(', ')}
+                {[task.address?.city || task.city, task.address?.province || task.province].filter(Boolean).join(', ')}
               </p>
             )}
             {getTaskContact(task) && (
@@ -145,7 +156,9 @@ export function TaskCard({ task, taskIndex, totalTasks, onFinalize, onUnassign, 
               size="sm"
               className="flex-1"
               onClick={() => {
-                const fullAddress = [getTaskAddress(task), task.city, task.province].filter(Boolean).join(', ')
+                const city = task.address?.city || task.city
+                const province = task.address?.province || task.province
+                const fullAddress = [getTaskAddress(task), city, province].filter(Boolean).join(', ')
                 const encodedAddress = encodeURIComponent(fullAddress)
                 window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, '_blank')
               }}
@@ -157,14 +170,29 @@ export function TaskCard({ task, taskIndex, totalTasks, onFinalize, onUnassign, 
               variant="outline"
               size="sm"
               className="flex-1"
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault()
                 const contact = getTaskContact(task)
-                if (contact && contact !== "Sin contacto especificado") {
-                  const phone = contact.replace(/\D/g, '')
-                  if (phone) {
-                    window.location.href = `tel:${phone}`
-                  }
+                if (!contact || contact === "Sin contacto especificado") {
+                  alert('No hay información de contacto disponible para esta tarea')
+                  return
                 }
+                
+                // Extraer solo números del contacto
+                const phone = contact.replace(/\D/g, '')
+                if (!phone || phone.length < 7) {
+                  alert('El contacto no contiene un número de teléfono válido')
+                  return
+                }
+                
+                // Crear un elemento <a> temporal y hacer click para iniciar la llamada
+                const telLink = `tel:${phone}`
+                const link = document.createElement('a')
+                link.href = telLink
+                link.style.display = 'none'
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
               }}
             >
               <Phone className="h-3 w-3 mr-1" />

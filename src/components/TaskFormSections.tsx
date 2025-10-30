@@ -7,6 +7,7 @@ import { SearchableSelect } from "./ui/searchable-select"
 import { Checkbox } from "./ui/checkbox"
 import { Label } from "./ui/label"
 import { Package, MapPin } from "lucide-react"
+import { parseAddress } from "../lib/address-parser"
 
 interface TaskFormSectionsProps {
   formData: any
@@ -220,8 +221,13 @@ export function AddressSection({
                     ? (clients || []).find(c => String(c.id) === String(contactId))
                     : (providers || []).find(p => String(p.id) === String(contactId))
                   if (contact) {
-                    onInputChange!("address", (contact as any).address || "")
+                    // Parsear dirección del contacto en campos separados
+                    const parsed = parseAddress((contact as any).address || "")
+                    onInputChange!("street", parsed.street)
+                    onInputChange!("streetNumber", parsed.streetNumber)
+                    onInputChange!("addressComplement", parsed.addressComplement)
                     onInputChange!("city", (contact as any).city || "")
+                    onInputChange!("province", (contact as any).province || "")
                     onInputChange!("contact", (contact as any).phoneNumber || (contact as any).contact || "")
                   }
                 }}
@@ -231,21 +237,51 @@ export function AddressSection({
               </Button>
             )}
           </div>
-          <Textarea
-            value={formData.address}
-            onChange={(e) => onInputChange!("address", e.target.value)}
-            className="mt-1"
-            rows={3}
-            placeholder={`Ingresa la dirección de ${formData.type === "retiro" ? "recogida" : "entrega"}...`}
-            required
-            disabled={disabled}
-          />
+          <div className="space-y-3 mt-1">
+            <div>
+              <label className="text-xs text-muted-foreground">Nombre de la Calle *</label>
+              <Input
+                value={formData.street || ""}
+                onChange={(e) => {
+                  let value = e.target.value
+                  value = value.replace(/\d/g, '').trim()
+                  onInputChange!("street", value)
+                }}
+                className="mt-1"
+                placeholder="Ej: Belgrano, Av. Libertador, etc."
+                required
+                disabled={disabled}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Número</label>
+                <Input
+                  value={formData.streetNumber || ""}
+                  onChange={(e) => onInputChange!("streetNumber", e.target.value)}
+                  className="mt-1"
+                  placeholder="123"
+                  disabled={disabled}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Complemento</label>
+                <Input
+                  value={formData.addressComplement || ""}
+                  onChange={(e) => onInputChange!("addressComplement", e.target.value)}
+                  className="mt-1"
+                  placeholder="PISO 9, OF 610"
+                  disabled={disabled}
+                />
+              </div>
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
             <Input
-              value={formData.city}
+              value={formData.city || ""}
               onChange={(e) => onInputChange!("city", e.target.value)}
               className="mt-1"
               placeholder="Ciudad"
@@ -255,7 +291,7 @@ export function AddressSection({
           <div>
             <label className="text-sm font-medium text-muted-foreground">Contacto</label>
             <Input
-              value={formData.contact}
+              value={formData.contact || ""}
               onChange={(e) => onInputChange!("contact", e.target.value)}
               className="mt-1"
               placeholder="Persona de contacto"

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { useAuth } from "../hooks/use-auth"
 import { useTasks } from "../hooks/use-tasks"
+import { formatAddress } from "../lib/address-utils"
 import {
   Calendar,
   AlertCircle,
@@ -117,7 +118,7 @@ export default function CourierTasksPage() {
     const matchesSearch =
       (task.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
       (task.referenceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
-      (task.addressOverride?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      (task.address ? formatAddress(task.address).toLowerCase().includes(searchQuery.toLowerCase()) : (task.addressOverride?.toLowerCase().includes(searchQuery.toLowerCase()) || false)) ||
       (task.notes?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
 
     // Modificar filtro de estado para incluir CONFIRMED y COMPLETED cuando es "all"

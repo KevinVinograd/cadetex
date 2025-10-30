@@ -1,17 +1,14 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { Input } from "../components/ui/input"
-import { Textarea } from "../components/ui/textarea"
 import { useAuth } from "../hooks/use-auth"
 import { useProviders } from "../hooks/use-providers"
 import { SuccessDialog } from "../components/ui/success-dialog"
+import { ContactInfoForm } from "../components/ContactInfoForm"
+import { AddressForm } from "../components/AddressForm"
 import { 
   ArrowLeft, 
-  Building2, 
-  Plus,
-  AlertCircle
+  Plus
 } from "lucide-react"
 import { getTranslation } from "../lib/translations"
 
@@ -39,11 +36,21 @@ export default function NewProviderPage() {
 
   const [formData, setFormData] = useState({
     name: "",
-    address: "",
-    city: "",
-    province: "",
-    phoneNumber: "",
+    legalName: "", // RAZÃO SOCIAL
     email: "",
+    phoneMobile: "", // NÚMERO TELEFONE CELULAR
+    phoneFixed: "", // NUMERO TELEFONE FIXO
+    country: "Argentina", // PAÍS
+    province: "", // ESTADO
+    city: "", // CIDADE
+    neighborhood: "", // BAIRRO
+    streetType: "", // TIPO LOGRADOURO
+    street: "", // LOGRADOURO
+    streetNumber: "", // NÚMERO LOGRADOURO
+    addressComplement: "", // COMPLEMENTO LOGRADOURO (piso, depto, etc.)
+    postalCode: "", // CEP
+    address: "", // Dirección completa combinada (para compatibilidad)
+    notes: "", // OBSERVAÇÃO
     isActive: true
   })
 
@@ -51,24 +58,57 @@ export default function NewProviderPage() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  // Construir dirección completa desde campos estructurados
+  const buildFullAddress = () => {
+    // Construir desde campos estructurados
+    const parts: string[] = []
+    
+    if (formData.street) parts.push(formData.street)
+    if (formData.streetNumber) parts.push(formData.streetNumber)
+    if (formData.addressComplement) parts.push(formData.addressComplement)
+    
+    return parts.join(" ").trim()
+  }
+
   const handleCreateProvider = async () => {
-    if (!organizationId || !formData.name || !formData.address || !formData.city || !formData.province) {
-      setCreateError(t.forms.completeAllFields)
+    // Validación de campos obligatorios
+    if (!organizationId || !formData.name) {
+      setCreateError("El nombre es obligatorio")
       return
     }
+    if (!formData.province) {
+      setCreateError("La provincia es obligatoria")
+      return
+    }
+    if (!formData.city) {
+      setCreateError("La ciudad es obligatoria")
+      return
+    }
+    
+    const fullAddress = buildFullAddress()
+    if (!fullAddress) {
+      setCreateError("La dirección es obligatoria. Complete al menos el nombre de la calle.")
+      return
+    }
+    
 
     try {
       setIsSaving(true)
       setCreateError("")
 
+      // Usar teléfono móvil como principal, o fijo si no hay móvil
+      const phoneNumber = formData.phoneMobile || formData.phoneFixed || undefined
+
       await createProvider({
         organizationId: organizationId!,
         name: formData.name,
-        address: formData.address,
+        street: formData.street || undefined,
+        streetNumber: formData.streetNumber || undefined,
+        addressComplement: formData.addressComplement || undefined,
         city: formData.city,
-        province: formData.province,
-        phoneNumber: formData.phoneNumber || undefined,
-        email: formData.email || undefined
+        ...(formData.province && { province: formData.province }),
+        contactPhone: phoneNumber || undefined,
+        isActive: formData.isActive
       })
 
       showSuccess(t.forms.providerCreated, t.forms.providerCreatedDesc)
@@ -121,7 +161,7 @@ export default function NewProviderPage() {
           <Button 
             size="sm" 
             onClick={handleCreateProvider}
-            disabled={isSaving || !formData.name || !formData.address || !formData.city || !formData.province}
+            disabled={isSaving || !formData.name || !formData.province || !formData.city || !buildFullAddress()}
             className="bg-green-600 hover:bg-green-700"
           >
             {isSaving ? t.forms.creating : t.forms.createProvider}
@@ -148,117 +188,22 @@ export default function NewProviderPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Provider Information */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Información del Proveedor
-              </CardTitle>
-              <CardDescription>Detalles de contacto y ubicación</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {createError && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    <p className="text-sm text-red-800 dark:text-red-200">{createError}</p>
-                  </div>
-                </div>
-              )}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Información del Proveedor */}
+        <ContactInfoForm
+          type="provider"
+          formData={formData}
+          onInputChange={handleInputChange}
+          error={createError}
+        />
 
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Nombre</label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  className="mt-1"
-                  placeholder="Nombre del proveedor"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Email</label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  className="mt-1"
-                  placeholder="proveedor@empresa.com"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
-                <Input
-                  value={formData.phoneNumber}
-                  onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
-                  className="mt-1"
-                  placeholder="+54 9 11 1234-5678"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Dirección</label>
-                <Textarea
-                  value={formData.address}
-                  onChange={(e) => handleInputChange("address", e.target.value)}
-                  className="mt-1"
-                  rows={3}
-                  placeholder="Calle 123, Barrio"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
-                <Input
-                  value={formData.city}
-                  onChange={(e) => handleInputChange("city", e.target.value)}
-                  className="mt-1"
-                  placeholder="Buenos Aires"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Provincia</label>
-                <Input
-                  value={formData.province}
-                  onChange={(e) => handleInputChange("province", e.target.value)}
-                  className="mt-1"
-                  placeholder="CABA"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Estado</label>
-                <select
-                  value={formData.isActive ? "active" : "inactive"}
-                  onChange={(e) => handleInputChange("isActive", e.target.value === "active")}
-                  className="mt-1 block w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-                >
-                  <option value="active">Activo</option>
-                  <option value="inactive">Inactivo</option>
-                </select>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Placeholder for future content */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Información Adicional
-              </CardTitle>
-              <CardDescription>Detalles adicionales del proveedor</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Proveedor Nuevo</h3>
-                <p className="text-sm text-muted-foreground">Una vez creado, aquí aparecerá información adicional del proveedor.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Dirección y Ubicación */}
+        <AddressForm
+          formData={formData}
+          onInputChange={(field: string, value: string) => handleInputChange(field, value)}
+          showNotes={true}
+          notesPlaceholder="Notas adicionales sobre el proveedor"
+        />
       </div>
 
       {/* Success Dialog */}

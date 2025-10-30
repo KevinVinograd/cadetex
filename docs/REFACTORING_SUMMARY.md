@@ -194,3 +194,4 @@ export function getTranslation(locale: Locale = 'es') {
 - El código es más mantenible y testeable
 
 
+

@@ -9,7 +9,9 @@ import { SuccessDialog } from "../components/ui/success-dialog"
 import { useTasks } from "../hooks/use-tasks"
 import { useAuth } from "../hooks/use-auth"
 import { TaskForm } from "../components/TaskForm"
-import { mapStatusToForm, mapPriorityToForm, mapTypeToForm, mapTypeToBackend, mapPriorityToBackend } from "../lib/task-utils"
+import { mapStatusToForm, mapStatusToBackend, mapPriorityToForm, mapTypeToForm, mapTypeToBackend, mapPriorityToBackend } from "../lib/task-utils"
+import { parseAddress } from "../lib/address-parser"
+import { formatAddress } from "../lib/address-utils"
 
 export default function CloneTaskPage() {
   const navigate = useNavigate()
@@ -33,8 +35,11 @@ export default function CloneTaskPage() {
     type: "entrega",
     status: "en_preparacion",
     scheduledDate: "",
-    address: "",
+    street: "",
+    streetNumber: "",
+    addressComplement: "",
     city: "",
+    province: "",
     contact: "",
     courierId: "unassigned",
     notes: "",
@@ -65,32 +70,35 @@ export default function CloneTaskPage() {
       contactId = String(clonedTask.clientId)
         // Fallbacks from contact card (real data)
         const client = clients?.find(c => String(c.id) === String(clonedTask.clientId))
-        const clientAddress = client?.address || ""
-        const clientCity = client?.city || ""
+        const clientAddress = typeof client?.address === 'object' ? formatAddress(client.address) : (client?.address || "")
+        const clientCity = typeof client?.address === 'object' ? client.address.city : (client?.city || "")
         const clientContact = (client as any)?.contact || ""
-        // Use original task fields if available; otherwise fallback to contact card
-        address = derivedType === 'entrega'
-          ? (clonedTask.deliveryAddress || clonedTask.addressOverride || clientAddress)
-          : (clonedTask.pickupAddress || clonedTask.addressOverride || clientAddress)
-        city = derivedType === 'entrega' ? (clonedTask.deliveryCity || clientCity) : (clonedTask.pickupCity || clientCity)
-        contact = derivedType === 'entrega' ? (clonedTask.deliveryContact || clientContact) : (clonedTask.pickupContact || clientContact)
+        // Use address from task if available, otherwise fallback to client address
+        const taskAddressString = clonedTask.address ? formatAddress(clonedTask.address) : (clonedTask.addressOverride || "")
+        address = taskAddressString || clientAddress
+        const taskCity = clonedTask.address?.city || clonedTask.city || ""
+        city = taskCity || clientCity
+        contact = clonedTask.contact || clientContact
         if (!contact) contact = clonedTask.clientName || contact
     } else if (clonedTask.providerId) {
         contactType = "provider"
       contactId = String(clonedTask.providerId)
         // Fallbacks from contact card (real data)
         const provider = providers?.find(p => String(p.id) === String(clonedTask.providerId))
-        const providerAddress = provider?.address || ""
-        const providerCity = provider?.city || ""
+        const providerAddress = typeof provider?.address === 'object' ? formatAddress(provider.address) : (provider?.address || "")
+        const providerCity = typeof provider?.address === 'object' ? provider.address.city : (provider?.city || "")
         const providerContact = (provider as any)?.contact || ""
-        // Use original task fields if available; otherwise fallback to contact card
-        address = derivedType === 'entrega'
-          ? (clonedTask.deliveryAddress || clonedTask.addressOverride || providerAddress)
-          : (clonedTask.pickupAddress || clonedTask.addressOverride || providerAddress)
-        city = derivedType === 'entrega' ? (clonedTask.deliveryCity || providerCity) : (clonedTask.pickupCity || providerCity)
-        contact = derivedType === 'entrega' ? (clonedTask.deliveryContact || providerContact) : (clonedTask.pickupContact || providerContact)
+        // Use address from task if available, otherwise fallback to provider address
+        const taskAddressString = clonedTask.address ? formatAddress(clonedTask.address) : (clonedTask.addressOverride || "")
+        address = taskAddressString || providerAddress
+        const taskCity = clonedTask.address?.city || clonedTask.city || ""
+        city = taskCity || providerCity
+        contact = clonedTask.contact || providerContact
         if (!contact) contact = clonedTask.providerName || contact
       }
+      
+      // Parsear dirección en campos separados
+      const parsed = parseAddress(address)
       
       setFormData({
         referenceBL: clonedTask.referenceBL || clonedTask.referenceNumber || "",
@@ -105,8 +113,11 @@ export default function CloneTaskPage() {
           : "",
         // @ts-expect-error optional from payload
         scheduledTime: clonedTask.scheduledTime || clonedTask.scheduled_time || (clonedTask.scheduledDate && String(clonedTask.scheduledDate).includes('T') ? new Date(clonedTask.scheduledDate).toISOString().split('T')[1]?.slice(0,5) : ""),
-        address,
+        street: parsed.street,
+        streetNumber: parsed.streetNumber,
+        addressComplement: parsed.addressComplement,
         city,
+        province: clonedTask.province || "",
         contact,
         courierId: clonedTask.courierId || "unassigned",
         notes: clonedTask.notes || "",
@@ -140,37 +151,62 @@ export default function CloneTaskPage() {
     }
   }, [currentTask])
 
-  // Auto-llenar dirección cuando llegan clientes/proveedores y falta address
-  useEffect(() => {
-    if (!formData.address && formData.contactId) {
-      const contact = formData.contactType === 'client'
-        ? (clients || []).find(c => String(c.id) === String(formData.contactId))
-        : (providers || []).find(p => String(p.id) === String(formData.contactId))
-      if (contact) {
-        setFormData(prev => ({
-          ...prev,
-          address: (contact as any).address || '',
-          city: (contact as any).city || '',
-          contact: (contact as any).phoneNumber || (contact as any).contact || ''
-        }))
-      }
-    }
-  }, [clients, providers])
+  // Trackear si el usuario modificó manualmente los campos de dirección
+  const [manualAddressFields, setManualAddressFields] = useState({
+    street: false,
+    streetNumber: false,
+    addressComplement: false,
+    city: false,
+    province: false,
+    contact: false
+  })
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    
+    // Marcar como modificado manualmente si el usuario cambia estos campos
+    if (field === "street" || field === "streetNumber" || field === "addressComplement" || field === "city" || field === "province" || field === "contact") {
+      setManualAddressFields(prev => ({ ...prev, [field]: true }))
+    }
   }
 
   const handleClientChange = (clientId: string) => {
     const client = (clients || []).find(c => String(c.id) === String(clientId))
     if (client) {
+      // Manejar address como objeto AddressObject o string legacy
+      let parsed
+      if (typeof (client as any).address === 'object' && (client as any).address) {
+        // Address es un objeto normalizado
+        parsed = {
+          street: (client as any).address.street || "",
+          streetNumber: (client as any).address.streetNumber || "",
+          addressComplement: (client as any).address.addressComplement || ""
+        }
+      } else {
+        // Address es un string legacy, parsearlo
+        parsed = parseAddress((client as any).address || "")
+      }
+      
       setFormData(prev => ({
         ...prev,
         contactId: String(clientId),
-        address: (client as any).address || "",
-        city: (client as any).city || "",
-        contact: (client as any).phoneNumber || (client as any).contact || ""
+        // Auto-completar dirección solo si no fue modificada manualmente
+        street: manualAddressFields.street ? prev.street : parsed.street,
+        streetNumber: manualAddressFields.streetNumber ? prev.streetNumber : parsed.streetNumber,
+        addressComplement: manualAddressFields.addressComplement ? prev.addressComplement : parsed.addressComplement,
+        city: manualAddressFields.city ? prev.city : (typeof (client as any).address === 'object' && (client as any).address?.city) || ((client as any).city || ""),
+        province: manualAddressFields.province ? prev.province : (typeof (client as any).address === 'object' && (client as any).address?.province) || ((client as any).province || ""),
+        contact: manualAddressFields.contact ? prev.contact : ((client as any).phoneNumber || (client as any).contact || "")
       }))
+      // Resetear los flags de modificación manual cuando se cambia el contacto
+      setManualAddressFields({
+        street: false,
+        streetNumber: false,
+        addressComplement: false,
+        city: false,
+        province: false,
+        contact: false
+      })
     } else {
       setFormData(prev => ({ ...prev, contactId: String(clientId) }))
     }
@@ -179,13 +215,40 @@ export default function CloneTaskPage() {
   const handleProviderChange = (providerId: string) => {
     const provider = (providers || []).find(p => String(p.id) === String(providerId))
     if (provider) {
+      // Manejar address como objeto AddressObject o string legacy
+      let parsed
+      if (typeof (provider as any).address === 'object' && (provider as any).address) {
+        // Address es un objeto normalizado
+        parsed = {
+          street: (provider as any).address.street || "",
+          streetNumber: (provider as any).address.streetNumber || "",
+          addressComplement: (provider as any).address.addressComplement || ""
+        }
+      } else {
+        // Address es un string legacy, parsearlo
+        parsed = parseAddress((provider as any).address || "")
+      }
+      
       setFormData(prev => ({
         ...prev,
         contactId: String(providerId),
-        address: (provider as any).address || "",
-        city: (provider as any).city || "",
-        contact: (provider as any).phoneNumber || (provider as any).contact || ""
+        // Auto-completar dirección solo si no fue modificada manualmente
+        street: manualAddressFields.street ? prev.street : parsed.street,
+        streetNumber: manualAddressFields.streetNumber ? prev.streetNumber : parsed.streetNumber,
+        addressComplement: manualAddressFields.addressComplement ? prev.addressComplement : parsed.addressComplement,
+        city: manualAddressFields.city ? prev.city : (typeof (provider as any).address === 'object' && (provider as any).address?.city) || ((provider as any).city || ""),
+        province: manualAddressFields.province ? prev.province : (typeof (provider as any).address === 'object' && (provider as any).address?.province) || ((provider as any).province || ""),
+        contact: manualAddressFields.contact ? prev.contact : ((provider as any).phoneNumber || (provider as any).contact || "")
       }))
+      // Resetear los flags de modificación manual cuando se cambia el contacto
+      setManualAddressFields({
+        street: false,
+        streetNumber: false,
+        addressComplement: false,
+        city: false,
+        province: false,
+        contact: false
+      })
     } else {
       setFormData(prev => ({ ...prev, contactId: String(providerId) }))
     }
@@ -200,23 +263,49 @@ export default function CloneTaskPage() {
       if (!organizationId) throw new Error('Organización no disponible')
       if (!formData.referenceBL?.trim()) throw new Error('Referencia requerida')
       if (!formData.scheduledDate) throw new Error('Fecha requerida')
-      if (!formData.address?.trim()) throw new Error('Dirección requerida')
+      if (!formData.street?.trim()) throw new Error('Dirección requerida')
       if (!formData.contactId) throw new Error('Contacto requerido')
+
+      // Construir dirección completa desde campos separados
+      const addressParts: string[] = []
+      if (formData.street) {
+        if (formData.streetNumber) {
+          addressParts.push(`${formData.street} ${formData.streetNumber}`)
+        } else {
+          addressParts.push(formData.street)
+        }
+        if (formData.addressComplement) {
+          addressParts.push(formData.addressComplement)
+        }
+      }
+      const fullAddress = addressParts.join(" ").trim()
 
       // Map form -> backend
       const referenceNumber = formData.referenceBL
       const clientId = formData.contactType === 'client' ? formData.contactId : undefined
       const providerId = formData.contactType === 'provider' ? formData.contactId : undefined
-      const addressOverride = formData.address
       const courierId = formData.courierId === 'unassigned' ? undefined : formData.courierId
+
+      // Construir objeto Address solo si hay dirección manual (override)
+      let addressOverride: any = undefined
+      if (fullAddress || formData.city || formData.province) {
+        addressOverride = {
+          street: formData.street || undefined,
+          streetNumber: formData.streetNumber || undefined,
+          addressComplement: formData.addressComplement || undefined,
+          city: formData.city || undefined,
+          province: formData.province || undefined
+        }
+      }
 
       // Solo incluir clientId o providerId, no ambos
       const taskData: any = {
         organizationId,
         type: mapTypeToBackend(formData.type),
         referenceNumber,
-        addressOverride,
+        contact: formData.contact || undefined,
         courierId: courierId !== 'unassigned' ? courierId : undefined,
+        status: mapStatusToBackend(formData.status),
         priority: mapPriorityToBackend(formData.priority),
         scheduledDate: formData.scheduledDate,
         notes: formData.notes || undefined,
@@ -227,6 +316,11 @@ export default function CloneTaskPage() {
         bunkerCert: Boolean(formData.bunkerCert),
         linkedTaskId: id || undefined,
         photoRequired: formData.photoRequired || false,
+      }
+      
+      // Incluir addressOverride solo si se construyó
+      if (addressOverride) {
+        taskData.addressOverride = addressOverride
       }
 
       // Agregar cliente o proveedor
@@ -256,12 +350,14 @@ export default function CloneTaskPage() {
         type: 'success'
       })
       setTimeout(() => navigate("/dashboard"), 1200)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating cloned task:', error)
+      // Extraer el mensaje de error del backend
+      const errorMessage = error?.message || "Error creando la tarea clonada. Intenta de nuevo."
       setSuccessDialog({
         isOpen: true,
         title: "Error",
-        description: error instanceof Error ? error.message : "Error creando la tarea clonada. Intenta de nuevo.",
+        description: errorMessage,
         type: 'error'
       })
     } finally {

@@ -47,12 +47,22 @@ export interface User {
   updatedAt: string;
 }
 
+export interface AddressObject {
+  id?: string
+  street?: string
+  streetNumber?: string
+  addressComplement?: string
+  city?: string
+  province?: string
+  postalCode?: string
+}
+
 export interface CreateClientRequest {
   organizationId: string;
   name: string;
-  address: string;
-  city: string;
-  province: string;
+  address?: string | AddressObject;
+  city?: string;
+  province?: string;
   phoneNumber?: string;
   email?: string;
   notes?: string;
@@ -63,9 +73,12 @@ export interface Client {
   id: string;
   organizationId: string;
   name: string;
-  address: string;
-  city: string;
-  province: string;
+  address?: string | AddressObject; // Puede venir normalizado o como string legacy
+  street?: string;
+  streetNumber?: string;
+  addressComplement?: string;
+  city?: string;
+  province?: string;
   phoneNumber?: string;
   email?: string;
   isActive: boolean;
@@ -76,20 +89,28 @@ export interface Client {
 export interface CreateProviderRequest {
   organizationId: string;
   name: string;
-  address: string;
-  city: string;
-  province: string;
-  phoneNumber?: string;
+  address?: string | AddressObject; // Opcional, normalizado o string legacy
+  street?: string;
+  streetNumber?: string;
+  addressComplement?: string;
+  city?: string;
+  province?: string;
+  contactPhone?: string;
+  contactName?: string;
   email?: string;
+  isActive?: boolean;
 }
 
 export interface Provider {
   id: string;
   organizationId: string;
   name: string;
-  address: string;
-  city: string;
-  province: string;
+  address?: string | AddressObject; // Puede venir normalizado o como string legacy
+  street?: string;
+  streetNumber?: string;
+  addressComplement?: string;
+  city?: string;
+  province?: string;
   phoneNumber?: string;
   email?: string;
   isActive: boolean;
@@ -157,7 +178,8 @@ class ApiService {
         let errorMessage = `HTTP error! status: ${response.status}`;
         try {
           const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
+          // El backend puede devolver 'error' o 'message'
+          errorMessage = errorData.error || errorData.message || errorMessage;
         } catch {
           // Si no se puede parsear el JSON, usar el mensaje por defecto
         }

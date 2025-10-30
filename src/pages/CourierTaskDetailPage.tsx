@@ -5,9 +5,9 @@ import { Badge } from "../components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Textarea } from "../components/ui/textarea"
 import { Label } from "../components/ui/label"
-import { Input } from "../components/ui/input"
 import { useTasks } from "../hooks/use-tasks"
 import { getTranslation } from "../lib/translations"
+import { parseAddress } from "../lib/address-parser"
 
 const t = getTranslation()
 
@@ -31,12 +31,9 @@ import {
   ArrowLeft, 
   Package, 
   MapPin, 
-  Clock, 
   CheckCircle2, 
   AlertCircle,
   Phone,
-  Mail,
-  Building2,
   Navigation,
   Play,
   Save,
@@ -135,9 +132,55 @@ export default function CourierTaskDetailPage() {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   
-  // Get the relevant address based on task type
-  const getTaskAddress = () => {
-    return task?.addressOverride || t.taskDetail.noAddress
+  // Parsear dirección en campos separados
+  const getParsedAddress = () => {
+    if (task?.address) {
+      return {
+        street: task.address.street || "",
+        streetNumber: task.address.streetNumber || "",
+        addressComplement: task.address.addressComplement || ""
+      }
+    }
+    // Fallback para compatibilidad con datos antiguos
+    if (!task?.addressOverride) return { street: "", streetNumber: "", addressComplement: "" }
+    return parseAddress(task.addressOverride)
+  }
+  
+  // Construir dirección para Google Maps (sin complemento)
+  const getMapsAddress = () => {
+    const address = task?.address
+    if (address) {
+      const addressParts: string[] = []
+      if (address.street) {
+        if (address.streetNumber) {
+          addressParts.push(`${address.street} ${address.streetNumber}`)
+        } else {
+          addressParts.push(address.street)
+        }
+      }
+      if (address.city) addressParts.push(address.city)
+      if (address.province) addressParts.push(address.province)
+      return addressParts.join(", ")
+    }
+    
+    // Fallback para compatibilidad con datos antiguos
+    const parsed = getParsedAddress()
+    const addressParts: string[] = []
+    
+    if (parsed.street) {
+      if (parsed.streetNumber) {
+        addressParts.push(`${parsed.street} ${parsed.streetNumber}`)
+      } else {
+        addressParts.push(parsed.street)
+      }
+    }
+    
+    const city = task?.address?.city || task?.city
+    const province = task?.address?.province || task?.province
+    if (city) addressParts.push(city)
+    if (province) addressParts.push(province)
+    
+    return addressParts.join(", ")
   }
   
   // Get the relevant contact based on task type
@@ -147,8 +190,10 @@ export default function CourierTaskDetailPage() {
   
   // Get the relevant city based on task type
   const getTaskCity = () => {
-    return task?.city || t.taskDetail.noCity
+    return task?.address?.city || task?.city || t.taskDetail.noCity
   }
+  
+  const parsedAddress = getParsedAddress()
 
   // Function to download the receipt photo
   const handleDownloadPhoto = () => {
@@ -207,9 +252,6 @@ export default function CourierTaskDetailPage() {
     )
   }
 
-  // Load client details
-  const client = null
-
   const getStatusBadge = (status: string) => {
     const variants = {
       pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -218,15 +260,6 @@ export default function CourierTaskDetailPage() {
       canceled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     }
     return <Badge className={variants[status as keyof typeof variants]}>{status}</Badge>
-  }
-
-  const getTypeBadge = (type: string) => {
-    const variants = {
-      delivery: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-      pickup: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-      both: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
-    }
-    return <Badge className={variants[type as keyof typeof variants]}>{type}</Badge>
   }
 
   const getPriorityBadge = (priority: string) => {
@@ -239,7 +272,7 @@ export default function CourierTaskDetailPage() {
     return <Badge className={variants[priority as keyof typeof variants]}>{priority}</Badge>
   }
 
-  const handleStatusUpdate = async (newStatus: string) => {
+  const handleStatusUpdate = async () => {
     setIsUpdating(true)
     
     // Simulate API call
@@ -266,7 +299,6 @@ export default function CourierTaskDetailPage() {
   }
 
   const canStartTask = task?.status === "PENDING" || task?.status === "PENDING_CONFIRMATION"
-  const canCompleteTask = task?.status === "CONFIRMED"
   const isTaskCompleted = task?.status === "COMPLETED"
 
   return (
@@ -296,18 +328,45 @@ export default function CourierTaskDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">
                   {task.type === "RETIRE" ? "Dirección de Retiro" : "Dirección de Entrega"}
                 </label>
-                <div className="mt-1 p-3 bg-muted rounded-md">
-                  <p className="text-sm font-medium">{getTaskAddress()}</p>
-                  {(getTaskCity() || task.province) && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {[getTaskCity(), task.province].filter(Boolean).join(', ')}
-                    </p>
+                <div className="mt-1 p-3 bg-muted rounded-md space-y-2">
+                  {parsedAddress.street && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Calle</p>
+                      <p className="text-sm font-medium">{parsedAddress.street}</p>
+                    </div>
                   )}
-                  {getTaskContact() && (
-                    <p className="text-sm text-muted-foreground mt-1">{getTaskContact()}</p>
+                  {(parsedAddress.streetNumber || parsedAddress.addressComplement) && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {parsedAddress.streetNumber && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Número</p>
+                          <p className="text-sm font-medium">{parsedAddress.streetNumber}</p>
+                        </div>
+                      )}
+                      {parsedAddress.addressComplement && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Complemento</p>
+                          <p className="text-sm font-medium">{parsedAddress.addressComplement}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {(getTaskCity() || (task.address?.province || task.province)) && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Ciudad / Provincia</p>
+                      <p className="text-sm font-medium">
+                        {[getTaskCity(), task.address?.province || task.province].filter(Boolean).join(', ')}
+                      </p>
+                    </div>
+                  )}
+                  {getTaskContact() && getTaskContact() !== t.taskDetail.noContact && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Contacto</p>
+                      <p className="text-sm font-medium">{getTaskContact()}</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -315,14 +374,17 @@ export default function CourierTaskDetailPage() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => {
-                    const address = `${getTaskAddress()}, ${getTaskCity()}, ${task.province}`
-                    window.open(`https://maps.google.com/maps?q=${encodeURIComponent(address)}`, '_blank')
-                  }}
+                  asChild
                   className="flex-1"
                 >
-                  <Navigation className="h-4 w-4 mr-2" />
-                  Ir a Dirección
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(getMapsAddress())}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Navigation className="h-4 w-4 mr-2" />
+                    Abrir en Google Maps
+                  </a>
                 </Button>
               </div>
             </CardContent>
@@ -366,6 +428,39 @@ export default function CourierTaskDetailPage() {
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">{getTaskContact()}</span>
+                    {getTaskContact() && getTaskContact() !== t.taskDetail.noContact && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          const contact = getTaskContact()
+                          if (!contact || contact === t.taskDetail.noContact) {
+                            alert('No hay información de contacto disponible para esta tarea')
+                            return
+                          }
+                          
+                          // Extraer solo números del contacto
+                          const phone = contact.replace(/\D/g, '')
+                          if (!phone || phone.length < 7) {
+                            alert('El contacto no contiene un número de teléfono válido')
+                            return
+                          }
+                          
+                          // Crear un elemento <a> temporal y hacer click para iniciar la llamada
+                          const telLink = `tel:${phone}`
+                          const link = document.createElement('a')
+                          link.href = telLink
+                          link.style.display = 'none'
+                          document.body.appendChild(link)
+                          link.click()
+                          document.body.removeChild(link)
+                        }}
+                      >
+                        <Phone className="h-4 w-4 mr-2" />
+                        Llamar
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -375,7 +470,7 @@ export default function CourierTaskDetailPage() {
                 {canStartTask && (
                   <Button 
                     className="w-full mb-2" 
-                    onClick={() => handleStatusUpdate("confirmada_tomar")}
+                    onClick={() => handleStatusUpdate()}
                     disabled={isUpdating}
                   >
                     <Play className="h-4 w-4 mr-2" />

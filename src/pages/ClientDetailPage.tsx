@@ -3,9 +3,10 @@ import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Badge } from "../components/ui/badge"
-import { Input } from "../components/ui/input"
-import { Textarea } from "../components/ui/textarea"
 import { useClients } from "../hooks/use-clients"
+import { ContactInfoForm } from "../components/ContactInfoForm"
+import { AddressForm } from "../components/AddressForm"
+import { parseAddress } from "../lib/address-parser"
 
 // Helper function to format dates consistently
 const formatDate = (dateString: string | undefined): string => {
@@ -40,10 +41,10 @@ import {
 export default function ClientDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { clients, isLoading, error, updateClient, deleteClient } = useClients()
+  const { clients, isLoading, error, updateClient, deleteClient, refetch } = useClients()
   const [isDeleting, setIsDeleting] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   
   // Estado para el diálogo de éxito
   const [successDialog, setSuccessDialog] = useState<{
@@ -59,11 +60,17 @@ export default function ClientDetailPage() {
   })
   const [formData, setFormData] = useState({
     name: "",
+    legalName: "",
     email: "",
-    phoneNumber: "",
-    address: "",
-    city: "",
+    phoneMobile: "",
+    phoneFixed: "",
     province: "",
+    city: "",
+    street: "",
+    streetNumber: "",
+    addressComplement: "",
+    postalCode: "",
+    notes: "",
     isActive: true
   })
 
@@ -73,17 +80,49 @@ export default function ClientDetailPage() {
   // Load client data into form when component mounts or client changes
   useEffect(() => {
     if (client) {
+      // Manejar address como objeto AddressObject o string legacy
+      let street = ""
+      let streetNumber = ""
+      let addressComplement = ""
+      
+      if (typeof client.address === 'object' && client.address) {
+        // Address es un objeto normalizado
+        street = client.address.street || ""
+        streetNumber = client.address.streetNumber || ""
+        addressComplement = client.address.addressComplement || ""
+      } else if (typeof client.address === 'string') {
+        // Address es un string legacy, parsearlo
+        const parsed = parseAddress(client.address)
+        street = parsed.street
+        streetNumber = parsed.streetNumber
+        addressComplement = parsed.addressComplement
+      }
+      
+      // Fallback a campos legacy si existen
+      street = street || client.street || ""
+      streetNumber = streetNumber || client.streetNumber || ""
+      addressComplement = addressComplement || client.addressComplement || ""
+      
+      const phone = client.phoneNumber || ""
+      const isMobile = phone.includes("9") || phone.length > 10
+      
       setFormData({
         name: client.name,
+        legalName: (client as any).legalName || "",
         email: client.email || "",
-        phoneNumber: client.phoneNumber || "",
-        address: client.address,
-        city: client.city,
-        province: client.province,
+        phoneMobile: isMobile ? phone : "",
+        phoneFixed: !isMobile ? phone : "",
+        province: (typeof client.address === 'object' && client.address?.province) || client.province || "",
+        city: (typeof client.address === 'object' && client.address?.city) || client.city || "",
+        street,
+        streetNumber,
+        addressComplement,
+        postalCode: "", // No está almacenado en el backend actualmente
+        notes: (client as any).notes || "",
         isActive: client.isActive
       })
     }
-  }, [client?.id])
+  }, [client?.id, client?.street, client?.streetNumber, client?.addressComplement, client?.city, client?.province])
   
   // Get tasks for this client
   const clientTasks: any[] = []
@@ -165,12 +204,83 @@ export default function ClientDetailPage() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  // Construir dirección completa desde campos estructurados
+  const buildFullAddress = () => {
+    const parts: string[] = []
+    if (formData.street) parts.push(formData.street)
+    if (formData.streetNumber) parts.push(formData.streetNumber)
+    if (formData.addressComplement) parts.push(formData.addressComplement)
+    return parts.join(" ").trim()
+  }
+
   const handleSave = async () => {
     if (!client) return
     
+    if (!formData.name) {
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "El nombre es obligatorio",
+        type: 'error'
+      })
+      return
+    }
+    if (!formData.city) {
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "La ciudad es obligatoria",
+        type: 'error'
+      })
+      return
+    }
+    if (!formData.province) {
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "La provincia es obligatoria",
+        type: 'error'
+      })
+      return
+    }
+    
+    const fullAddress = buildFullAddress()
+    if (!fullAddress) {
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "La dirección es obligatoria",
+        type: 'error'
+      })
+      return
+    }
+    
     setIsSaving(true)
     try {
-      await updateClient(client.id, formData)
+      const phoneNumber = formData.phoneMobile || formData.phoneFixed || undefined
+      
+      // Construir objeto Address para enviar al backend
+      const address = {
+        street: formData.street || undefined,
+        streetNumber: formData.streetNumber || undefined,
+        addressComplement: formData.addressComplement || undefined,
+        city: formData.city || undefined,
+        province: formData.province || undefined,
+        postalCode: formData.postalCode || undefined
+      }
+      
+      await updateClient(client.id, {
+        name: formData.name,
+        email: formData.email || undefined,
+        phoneNumber: phoneNumber,
+        address: address,
+        isActive: formData.isActive
+      })
+      
+      // Recargar los clientes para obtener los datos actualizados
+      await refetch()
+      
+      setIsEditing(false)
       
       // Mostrar diálogo de éxito
       setSuccessDialog({
@@ -179,11 +289,6 @@ export default function ClientDetailPage() {
         description: `Los datos de ${formData.name} han sido actualizados correctamente.`,
         type: 'success'
       })
-      
-      // Navegar de vuelta a la lista después de 1.5 segundos
-      setTimeout(() => {
-        navigate("/dashboard/clients")
-      }, 1500)
     } catch (error) {
       console.error('Error updating client:', error)
       
@@ -202,13 +307,45 @@ export default function ClientDetailPage() {
   const handleCancel = () => {
     // Reset form data to original client data
     if (client) {
+      // Manejar address como objeto AddressObject o string legacy
+      let street = ""
+      let streetNumber = ""
+      let addressComplement = ""
+      
+      if (typeof client.address === 'object' && client.address) {
+        // Address es un objeto normalizado
+        street = client.address.street || ""
+        streetNumber = client.address.streetNumber || ""
+        addressComplement = client.address.addressComplement || ""
+      } else if (typeof client.address === 'string') {
+        // Address es un string legacy, parsearlo
+        const parsed = parseAddress(client.address)
+        street = parsed.street
+        streetNumber = parsed.streetNumber
+        addressComplement = parsed.addressComplement
+      }
+      
+      // Fallback a campos legacy si existen
+      street = street || client.street || ""
+      streetNumber = streetNumber || client.streetNumber || ""
+      addressComplement = addressComplement || client.addressComplement || ""
+      
+      const phone = client.phoneNumber || ""
+      const isMobile = phone.includes("9") || phone.length > 10
+      
       setFormData({
         name: client.name,
         email: client.email || "",
-        phoneNumber: client.phoneNumber || "",
-        address: client.address,
-        city: client.city,
-        province: client.province,
+        phoneMobile: isMobile ? phone : "",
+        phoneFixed: !isMobile ? phone : "",
+        province: (typeof client.address === 'object' && client.address?.province) || client.province || "",
+        city: (typeof client.address === 'object' && client.address?.city) || client.city || "",
+        street,
+        streetNumber,
+        addressComplement,
+        postalCode: "",
+        legalName: (client as any).legalName || "",
+        notes: (client as any).notes || "",
         isActive: client.isActive
       })
     }
@@ -268,34 +405,23 @@ export default function ClientDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!isEditing ? (
-            <>
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={() => setIsEditing(true)}
-                className="bg-primary hover:bg-primary/90"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Editar Cliente
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {isDeleting ? "Eliminando..." : "Eliminar"}
-              </Button>
-            </>
-          ) : (
+          {!isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              disabled={isSaving}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
+          )}
+          {isEditing && (
             <>
               <Button 
                 size="sm" 
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || !formData.name || !formData.city || !formData.province || !buildFullAddress()}
                 className="bg-green-600 hover:bg-green-700"
               >
                 {isSaving ? "Guardando..." : "Guardar Cambios"}
@@ -305,151 +431,47 @@ export default function ClientDetailPage() {
                 size="sm" 
                 onClick={handleCancel}
                 disabled={isSaving}
-                className="border-red-200 text-red-600 hover:bg-red-50"
+                className="border-gray-200"
               >
                 Cancelar
               </Button>
             </>
           )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleDelete}
+            disabled={isDeleting || isEditing}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {isDeleting ? "Eliminando..." : "Eliminar"}
+          </Button>
         </div>
       </div>
 
-      {/* Editing Mode Banner */}
-      {isEditing && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-          <div className="flex items-center gap-2">
-            <Edit className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-              Modo de edición activo - Haz clic en "Guardar Cambios" para confirmar o "Cancelar" para descartar
-            </p>
-          </div>
-        </div>
-      )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Client Information */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Información del Cliente
-              </CardTitle>
-              <CardDescription>Detalles de contacto y ubicación</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Nombre</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="text-lg font-semibold">{client.name}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Email</label>
-                {isEditing ? (
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : client.email ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-sm">{client.email}</p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No email provided</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.phoneNumber}
-                    onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : client.phoneNumber ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-sm">{client.phoneNumber}</p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No phone provided</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Dirección</label>
-                {isEditing ? (
-                  <Textarea
-                    value={formData.address}
-                    onChange={(e) => handleInputChange("address", e.target.value)}
-                    className="mt-1"
-                    rows={3}
-                  />
-                ) : (
-                  <div className="flex items-start gap-2 mt-1">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <p className="text-sm">{client.address}</p>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.city}
-                    onChange={(e) => handleInputChange("city", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="text-sm mt-1">{client.city}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Provincia</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.province}
-                    onChange={(e) => handleInputChange("province", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="text-sm mt-1">{client.province}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Estado</label>
-                {isEditing ? (
-                  <select
-                    value={formData.isActive ? "active" : "inactive"}
-                    onChange={(e) => handleInputChange("isActive", e.target.value === "active")}
-                    className="mt-1 block w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-                  >
-                    <option value="active">Activo</option>
-                    <option value="inactive">Inactivo</option>
-                  </select>
-                ) : (
-                  <div className="mt-1">
-                    <Badge variant={client.isActive ? "default" : "secondary"}>
-                      {client.isActive ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Información del Cliente - Misma estructura que NewClientPage */}
+        <ContactInfoForm
+          type="client"
+          formData={formData}
+          onInputChange={handleInputChange}
+          disabled={!isEditing}
+        />
 
-        {/* Tasks List */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Dirección y Ubicación - Misma estructura que NewClientPage */}
+        <AddressForm
+          formData={formData}
+          onInputChange={(field: string, value: string) => handleInputChange(field, value)}
+          showNotes={true}
+          notesPlaceholder="Notas adicionales sobre el cliente"
+          disabled={!isEditing}
+        />
+      </div>
+
+      {/* Tasks List - Abajo de todo */}
+      <div className="space-y-6">
           <Card className="border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -503,7 +525,6 @@ export default function ClientDetailPage() {
               )}
             </CardContent>
           </Card>
-        </div>
       </div>
 
       {/* Success Dialog */}

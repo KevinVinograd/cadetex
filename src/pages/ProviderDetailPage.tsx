@@ -2,18 +2,14 @@ import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { Badge } from "../components/ui/badge"
-import { Input } from "../components/ui/input"
-import { Textarea } from "../components/ui/textarea"
 import { useProviders } from "../hooks/use-providers"
 import { SuccessDialog } from "../components/ui/success-dialog"
+import { ContactInfoForm } from "../components/ContactInfoForm"
+import { AddressForm } from "../components/AddressForm"
+import { parseAddress } from "../lib/address-parser"
 import { 
   ArrowLeft, 
-  Building2, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Edit, 
+  Edit,
   Trash2,
   AlertCircle
 } from "lucide-react"
@@ -21,10 +17,10 @@ import {
 export default function ProviderDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { providers, isLoading, error, updateProvider, deleteProvider } = useProviders()
+  const { providers, isLoading, error, updateProvider, deleteProvider, refetch } = useProviders()
   const [isDeleting, setIsDeleting] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   
   // Estado para el diálogo de éxito
   const [successDialog, setSuccessDialog] = useState<{
@@ -41,11 +37,15 @@ export default function ProviderDetailPage() {
   
   const [formData, setFormData] = useState({
     name: "",
-    address: "",
-    city: "",
+    contactName: "",
+    contactPhone: "",
     province: "",
-    phoneNumber: "",
-    email: "",
+    city: "",
+    street: "",
+    streetNumber: "",
+    addressComplement: "",
+    postalCode: "",
+    notes: "",
     isActive: true
   })
 
@@ -55,28 +55,99 @@ export default function ProviderDetailPage() {
   // Load provider data into form
   useEffect(() => {
     if (provider) {
+      // Usar campos separados del backend si existen, sino parsear desde address
+      const street = provider.street || (provider.address ? parseAddress(provider.address).street : "")
+      const streetNumber = provider.streetNumber || (provider.address ? parseAddress(provider.address).streetNumber : "")
+      const addressComplement = provider.addressComplement || (provider.address ? parseAddress(provider.address).addressComplement : "")
+      
       setFormData({
         name: provider.name,
-        address: provider.address,
-        city: provider.city,
-        province: provider.province,
-        phoneNumber: provider.phoneNumber || "",
-        email: provider.email || "",
+        contactName: (provider as any).contactName || "",
+        contactPhone: (provider as any).contactPhone || provider.phoneNumber || "",
+        province: provider.province || "",
+        city: provider.city || "",
+        street,
+        streetNumber,
+        addressComplement,
+        postalCode: "",
+        notes: (provider as any).notes || "",
         isActive: provider.isActive
       })
     }
-  }, [provider])
+  }, [provider?.id, provider?.street, provider?.streetNumber, provider?.addressComplement, provider?.city, provider?.province])
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  // Construir dirección completa desde campos estructurados
+  const buildFullAddress = () => {
+    const parts: string[] = []
+    if (formData.street) parts.push(formData.street)
+    if (formData.streetNumber) parts.push(formData.streetNumber)
+    if (formData.addressComplement) parts.push(formData.addressComplement)
+    return parts.join(" ").trim()
   }
 
   const handleSave = async () => {
     if (!provider) return
     
+    if (!formData.name) {
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "El nombre es obligatorio",
+        type: 'error'
+      })
+      return
+    }
+    if (!formData.city) {
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "La ciudad es obligatoria",
+        type: 'error'
+      })
+      return
+    }
+    if (!formData.province) {
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "La provincia es obligatoria",
+        type: 'error'
+      })
+      return
+    }
+    
+    const fullAddress = buildFullAddress()
+    if (!fullAddress) {
+      setSuccessDialog({
+        isOpen: true,
+        title: "Error",
+        description: "La dirección es obligatoria",
+        type: 'error'
+      })
+      return
+    }
+    
     setIsSaving(true)
     try {
-      await updateProvider(provider.id, formData)
+      await updateProvider(provider.id, {
+        name: formData.name,
+        street: formData.street || undefined,
+        streetNumber: formData.streetNumber || undefined,
+        addressComplement: formData.addressComplement || undefined,
+        city: formData.city,
+        province: formData.province,
+        contactName: formData.contactName || undefined,
+        contactPhone: formData.contactPhone || undefined,
+        isActive: formData.isActive
+      })
+      
+      // Recargar los proveedores para obtener los datos actualizados
+      await refetch()
+      
       setIsEditing(false)
       
       // Mostrar diálogo de éxito
@@ -104,13 +175,22 @@ export default function ProviderDetailPage() {
   const handleCancel = () => {
     // Reset form data to original provider data
     if (provider) {
+      // Usar campos separados del backend si existen, sino parsear desde address
+      const street = provider.street || (provider.address ? parseAddress(provider.address).street : "")
+      const streetNumber = provider.streetNumber || (provider.address ? parseAddress(provider.address).streetNumber : "")
+      const addressComplement = provider.addressComplement || (provider.address ? parseAddress(provider.address).addressComplement : "")
+      
       setFormData({
         name: provider.name,
-        address: provider.address,
-        city: provider.city,
-        province: provider.province,
-        phoneNumber: provider.phoneNumber || "",
-        email: provider.email || "",
+        contactName: (provider as any).contactName || "",
+        contactPhone: (provider as any).contactPhone || provider.phoneNumber || "",
+        province: provider.province || "",
+        city: provider.city || "",
+        street,
+        streetNumber,
+        addressComplement,
+        postalCode: "",
+        notes: (provider as any).notes || "",
         isActive: provider.isActive
       })
     }
@@ -218,199 +298,72 @@ export default function ProviderDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!isEditing ? (
-            <>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setIsEditing(true)}
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {isDeleting ? "Eliminando..." : "Eliminar"}
-              </Button>
-            </>
-          ) : (
+          {!isEditing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              disabled={isSaving}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
+          )}
+          {isEditing && (
             <>
               <Button 
                 size="sm" 
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || !formData.name || !formData.city || !formData.province || !buildFullAddress()}
+                className="bg-green-600 hover:bg-green-700"
               >
-                {isSaving ? "Guardando..." : "Guardar"}
+                {isSaving ? "Guardando..." : "Guardar Cambios"}
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={handleCancel}
                 disabled={isSaving}
+                className="border-gray-200"
               >
                 Cancelar
               </Button>
             </>
           )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleDelete}
+            disabled={isDeleting || isEditing}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {isDeleting ? "Eliminando..." : "Eliminar"}
+          </Button>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Provider Information */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Información del Proveedor
-              </CardTitle>
-              <CardDescription>Detalles de contacto y ubicación</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Nombre</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="text-lg font-semibold">{provider.name}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Email</label>
-                {isEditing ? (
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : provider.email ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-sm">{provider.email}</p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No email provided</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.phoneNumber}
-                    onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : provider.phoneNumber ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-sm">{provider.phoneNumber}</p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No phone provided</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Contacto</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.contact}
-                    onChange={(e) => handleInputChange("contact", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : provider.contact ? (
-                  <p className="text-sm">{provider.contact}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No contact provided</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Provincia</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.province}
-                    onChange={(e) => handleInputChange("province", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="text-sm mt-1">{provider.province}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Estado</label>
-                {isEditing ? (
-                  <select
-                    value={formData.isActive ? "active" : "inactive"}
-                    onChange={(e) => handleInputChange("isActive", e.target.value === "active")}
-                    className="mt-1 block w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
-                  >
-                    <option value="active">Activo</option>
-                    <option value="inactive">Inactivo</option>
-                  </select>
-                ) : (
-                  <div className="mt-1">
-                    <Badge variant={provider.isActive ? "default" : "secondary"}>
-                      {provider.isActive ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Información del Proveedor - Misma estructura que NewProviderPage */}
+        <ContactInfoForm
+          type="provider"
+          formData={formData}
+          onInputChange={handleInputChange}
+          disabled={!isEditing}
+        />
 
-          <Card className="border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Ubicación
-              </CardTitle>
-              <CardDescription>Dirección y ciudad</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Ciudad</label>
-                {isEditing ? (
-                  <Input
-                    value={formData.city}
-                    onChange={(e) => handleInputChange("city", e.target.value)}
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="text-sm font-semibold">{provider.city}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Dirección</label>
-                {isEditing ? (
-                  <Textarea
-                    value={formData.address}
-                    onChange={(e) => handleInputChange("address", e.target.value)}
-                    className="mt-1"
-                    rows={3}
-                  />
-                ) : (
-                  <div className="flex items-start gap-2 mt-1">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <p className="text-sm">{provider.address}</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Dirección y Ubicación - Misma estructura que NewProviderPage */}
+        <AddressForm
+          formData={formData}
+          onInputChange={(field: string, value: string) => handleInputChange(field, value)}
+          showNotes={true}
+          notesPlaceholder="Notas adicionales sobre el proveedor"
+          disabled={!isEditing}
+        />
+      </div>
 
-        {/* Tasks List */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Tasks List - Abajo de todo */}
+      <div className="space-y-6">
           <Card className="border">
             <CardHeader>
               <CardTitle>Tareas Asociadas</CardTitle>
@@ -422,7 +375,6 @@ export default function ProviderDetailPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
       </div>
 
       {/* Success Dialog */}

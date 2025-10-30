@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiService } from '../lib/api'
+import { AddressObject } from '../lib/address-utils'
 
 export interface Task {
   id: string
@@ -12,9 +13,8 @@ export interface Task {
   providerName?: string
   courierId?: string
   courierName?: string
-  addressOverride?: string
-  city?: string
-  province?: string
+  addressOverrideId?: string
+  address?: AddressObject // Calculado dinámicamente: override, o client address, o provider address
   contact?: string
   status: 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
   priority: 'NORMAL' | 'URGENT'
@@ -40,7 +40,7 @@ export interface CreateTaskRequest {
   clientId?: string
   providerId?: string
   courierId?: string
-  addressOverride?: string
+  addressOverrideId?: string
   priority: 'NORMAL' | 'URGENT'
   scheduledDate?: string
   notes?: string
@@ -53,13 +53,14 @@ export interface CreateTaskRequest {
 }
 
 export interface UpdateTaskRequest {
+  courierNotes?: string;
   type?: 'RETIRE' | 'DELIVER'
   referenceNumber?: string
   clientId?: string
   providerId?: string
   courierId?: string
   unassignCourier?: boolean
-  addressOverride?: string
+  addressOverrideId?: string
   status?: 'PENDING' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
   priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
   scheduledDate?: string
@@ -105,9 +106,10 @@ export function useTasks() {
       const newTask = await apiService.createTask(taskData)
       setTasks(prev => [...prev, newTask])
       return newTask
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating task:', err)
-      throw new Error('Error al crear la tarea')
+      // Preservar el mensaje de error original del backend
+      throw err instanceof Error ? err : new Error(err?.message || 'Error al crear la tarea')
     }
   }
 
@@ -117,9 +119,10 @@ export function useTasks() {
       setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task))
       setCurrentTask(prev => (prev && prev.id === taskId ? updatedTask : prev))
       return updatedTask
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating task:', err)
-      throw new Error('Error al actualizar la tarea')
+      // Preservar el mensaje de error original del backend
+      throw err instanceof Error ? err : new Error(err?.message || 'Error al actualizar la tarea')
     }
   }
 
