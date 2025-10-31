@@ -1,9 +1,11 @@
 // Servicio de API para comunicación con el backend
-// En desarrollo, default a localhost si no hay env; en producción, exigir env
-const resolvedBaseUrl = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8080' : undefined)
-if (!resolvedBaseUrl) {
-  throw new Error('VITE_API_BASE_URL no está definido. Configúralo antes del build de producción.');
-}
+// En producción, usar el proxy de CloudFront (/api) para evitar Mixed Content
+// En desarrollo, usar la URL directa del backend
+const isProduction = import.meta.env.PROD;
+const resolvedBaseUrl = isProduction 
+  ? '/api'  // En producción, usar proxy de CloudFront (HTTPS)
+  : (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'); // En desarrollo, usar URL directa
+
 const API_BASE_URL = resolvedBaseUrl as string;
 
 export interface LoginRequest {
