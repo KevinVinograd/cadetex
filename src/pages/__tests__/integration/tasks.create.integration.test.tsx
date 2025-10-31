@@ -46,7 +46,8 @@ describe('Tasks - create (integration)', () => {
     await userEvent.click(screen.getByLabelText(/Certificado FO/i))
 
     // Crear
-    await userEvent.click(screen.getByRole('button', { name: /Crear Tarea/i }))
+    const submitBtn = await screen.findByRole('button', { name: /Crear Tarea/i })
+    await userEvent.click(submitBtn)
 
     // Validar que se haya enviado el POST (MSW)
     await waitFor(() => {
