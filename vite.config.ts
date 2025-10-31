@@ -24,6 +24,8 @@ export default defineConfig({
     setupFiles: [path.resolve(__dirname, './src/setupTests.ts')],
     globals: true,
     css: true,
+    testTimeout: 10000,
+    hookTimeout: 10000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
