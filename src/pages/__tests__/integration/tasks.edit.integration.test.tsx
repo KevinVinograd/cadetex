@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../../../App'
@@ -20,8 +20,22 @@ describe('Tasks - edit (integration)', () => {
       </MemoryRouter>
     )
 
-    // Esperar carga
-    expect(await screen.findByRole('heading', { name: /Tarea/i })).toBeInTheDocument()
+    // Esperar a que la tarea se cargue completamente - buscar el botón Editar que aparece después de la carga
+    await waitFor(
+      async () => {
+        await screen.findByRole('button', { name: /Editar/i })
+      },
+      { timeout: 5000 }
+    )
+    
+    // Ahora buscar el heading con timeout para CI
+    await waitFor(
+      async () => {
+        const heading = await screen.findByRole('heading', { name: /Tarea/i })
+        expect(heading).toBeInTheDocument()
+      },
+      { timeout: 5000 }
+    )
 
     // Entrar en edición
     await userEvent.click(screen.getByRole('button', { name: /Editar/i }))

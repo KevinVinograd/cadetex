@@ -25,11 +25,22 @@ describe('Tasks - eliminar desde Dashboard (integration)', () => {
       </MemoryRouter>
     )
 
-    // Esperar que cargue el dashboard y las tareas
-    await screen.findByRole('heading', { name: /Dashboard/i })
+    // Esperar a que aparezca la tabla con tareas (indica que el dashboard terminó de cargar)
+    await waitFor(
+      async () => {
+        await screen.findByText(/REF-OLD/i)
+      },
+      { timeout: 5000 }
+    )
     
-    // Esperar a que aparezca la tabla con tareas
-    await screen.findByText(/REF-OLD/i)
+    // Ahora buscar el heading con timeout para CI
+    await waitFor(
+      async () => {
+        const heading = await screen.findByRole('heading', { name: /Dashboard/i })
+        expect(heading).toBeInTheDocument()
+      },
+      { timeout: 5000 }
+    )
 
     // Buscar el botón de eliminar (tiene title="Eliminar")
     const deleteButtons = await screen.findAllByTitle(/Eliminar/i)
