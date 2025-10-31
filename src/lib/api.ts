@@ -1,5 +1,10 @@
 // Servicio de API para comunicación con el backend
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+// En desarrollo, default a localhost si no hay env; en producción, exigir env
+const resolvedBaseUrl = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8080' : undefined)
+if (!resolvedBaseUrl) {
+  throw new Error('VITE_API_BASE_URL no está definido. Configúralo antes del build de producción.');
+}
+const API_BASE_URL = resolvedBaseUrl as string;
 
 export interface LoginRequest {
   email: string;

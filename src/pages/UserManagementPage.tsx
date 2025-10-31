@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "../components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { SuccessDialog } from "../components/ui/success-dialog"
+import apiService from "../lib/api"
 
 export default function UserManagementPage() {
   const navigate = useNavigate()
@@ -103,22 +104,15 @@ export default function UserManagementPage() {
       setIsCreating(true)
       setCreateError("")
 
-      const response = await fetch('http://localhost:8080/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({
-          organizationId: selectedOrg,
-          name: userName,
-          email: userEmail,
-          password: userPassword,
-          role: userRole
-        })
+      const response = await apiService.register({
+        organizationId: selectedOrg,
+        name: userName,
+        email: userEmail,
+        password: userPassword,
+        role: userRole
       })
 
-      if (response.ok) {
+      if (response) {
         // Limpiar formulario y cerrar diálogo
         setUserName("")
         setUserEmail("")
@@ -165,18 +159,9 @@ export default function UserManagementPage() {
       setIsUpdatingPassword(true)
       setCreateError("")
 
-      const response = await fetch(`http://localhost:8080/users/${selectedUser}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({
-          password: newPassword
-        })
-      })
+      const response = await apiService.updateUser(selectedUser, { password: newPassword } as any)
 
-      if (response.ok) {
+      if (response) {
         setNewPassword("")
         setSelectedUser(null)
         setIsPasswordDialogOpen(false)
@@ -199,19 +184,10 @@ export default function UserManagementPage() {
       "¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.",
       async () => {
         try {
-          const response = await fetch(`http://localhost:8080/users/${userId}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-          })
-
-          if (response.ok) {
+          await apiService.deleteUser(userId)
+          {
             showSuccess("Usuario Eliminado", "El usuario ha sido eliminado exitosamente.")
             setTimeout(() => window.location.reload(), 1500)
-          } else {
-            const errorData = await response.json()
-            showSuccess("Error", errorData.error || "Error al eliminar usuario", "error")
           }
         } catch (err) {
           showSuccess("Error", "Error al eliminar usuario", "error")

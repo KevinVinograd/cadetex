@@ -1,0 +1,50 @@
+stages:
+  - build
+  - deploy
+
+build_frontend:
+  stage: build
+  image: node:20-alpine
+  variables:
+    # Debe venir seteado en CI/CD Variables
+    VITE_API_BASE_URL: "$VITE_API_BASE_URL"
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+  script:
+    - node -v && npm -v
+    - npm ci
+    - npm run build
+  artifacts:
+    when: on_success
+    paths:
+      - dist/
+    expire_in: 1 week
+
+deploy_frontend:
+  stage: deploy
+  image: amazon/aws-cli:2.15.58
+  needs: ["build_frontend"]
+  script:
+    - aws --version
+    - aws s3 sync dist/ s3://$S3_BUCKET/ --delete --region ${AWS_DEFAULT_REGION:-sa-east-1}
+    - |
+      if [ -n "$CLOUDFRONT_DIST_ID" ]; then
+        aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DIST_ID --paths "/*"
+      else
+        echo "CLOUDFRONT_DIST_ID no configurado; se omite invalidación."
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  environment:
+    name: production
+
+# Variables requeridas en GitLab CI/CD > Variables (masked/protected según corresponda):
+#  - VITE_API_BASE_URL=http://54.232.198.214:8080
+#  - AWS_ACCESS_KEY_ID
+#  - AWS_SECRET_ACCESS_KEY
+#  - AWS_DEFAULT_REGION=sa-east-1
+#  - S3_BUCKET=kdt-frontend-prod-sa-east-1
+#  - CLOUDFRONT_DIST_ID=<ID de distribución>
+

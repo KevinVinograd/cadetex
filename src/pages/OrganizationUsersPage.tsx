@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "../components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { SuccessDialog } from "../components/ui/success-dialog"
+import apiService from "../lib/api"
 
 export default function OrganizationUsersPage() {
   const navigate = useNavigate()
@@ -142,22 +143,15 @@ export default function OrganizationUsersPage() {
       setIsCreating(true)
       setCreateError("")
 
-      const response = await fetch('http://localhost:8080/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({
-          organizationId: organizationId,
-          name: userName,
-          email: userEmail,
-          password: userPassword,
-          role: userRole
-        })
+      const response = await apiService.register({
+        organizationId: organizationId,
+        name: userName,
+        email: userEmail,
+        password: userPassword,
+        role: userRole
       })
 
-      if (response.ok) {
+      if (response) {
         setUserName("")
         setUserEmail("")
         setUserPassword("")
@@ -165,9 +159,6 @@ export default function OrganizationUsersPage() {
         setIsDialogOpen(false)
         showSuccess("Usuario Creado", "El usuario ha sido creado exitosamente.")
         // No recargar la página, los datos se actualizarán automáticamente
-      } else {
-        const errorData = await response.json()
-        setCreateError(errorData.error || "Error al crear usuario")
       }
     } catch (err) {
       setCreateError("Error al crear usuario")
@@ -204,16 +195,9 @@ export default function OrganizationUsersPage() {
         updateData.password = editPassword
       }
 
-      const response = await fetch(`http://localhost:8080/users/${editingUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(updateData)
-      })
+      const response = await apiService.updateUser(editingUser.id, updateData)
 
-      if (response.ok) {
+      if (response) {
         setEditingUser(null)
         setIsEditDialogOpen(false)
         showSuccess("Usuario Actualizado", "El usuario ha sido actualizado exitosamente.")
@@ -223,7 +207,7 @@ export default function OrganizationUsersPage() {
         setEditPassword("")
         setEditRole("")
         setEditIsActive(true)
-      } else if (response.status === 401) {
+      } else if (false) {
         // Token expirado o inválido
         setCreateError("Sesión expirada. Por favor, inicia sesión nuevamente.")
         // Opcional: redirigir al login
@@ -231,9 +215,6 @@ export default function OrganizationUsersPage() {
           localStorage.removeItem('authToken')
           window.location.href = '/login'
         }, 2000)
-      } else {
-        const errorData = await response.json()
-        setCreateError(errorData.error || "Error al actualizar usuario")
       }
     } catch (err) {
       setCreateError("Error de conexión. Verifica tu conexión a internet.")
@@ -249,19 +230,10 @@ export default function OrganizationUsersPage() {
       "¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.",
       async () => {
         try {
-          const response = await fetch(`http://localhost:8080/users/${userId}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-          })
-
-          if (response.ok) {
+          await apiService.deleteUser(userId)
+          {
             showSuccess("Usuario Eliminado", "El usuario ha sido eliminado exitosamente.")
             // No recargar la página, los datos se actualizarán automáticamente
-          } else {
-            const errorData = await response.json()
-            showSuccess("Error", errorData.error || "Error al eliminar usuario", "error")
           }
         } catch (err) {
           showSuccess("Error", "Error al eliminar usuario", "error")
