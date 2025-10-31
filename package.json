@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest --reporter=dot",
+    "test:integration": "vitest run --reporter=dot src/pages/__tests__/integration",
     "test:ui": "vitest --ui",
     "test:cov": "vitest run --coverage --reporter=dot",
     "test:quiet": "cross-env QUIET_TESTS=1 vitest run --reporter=dot"

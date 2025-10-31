@@ -21,13 +21,24 @@ describe('Tasks - create (integration)', () => {
       </MemoryRouter>
     )
 
-    // Completar mínimos
-    await userEvent.type(await screen.findByLabelText(/Referencia Vexa/i), 'REF-INTEG-1')
-    await userEvent.type(await screen.findByLabelText(/Fecha Programada/i), '2025-12-31')
-    await userEvent.type(screen.getByPlaceholderText(/Ingresa la dirección/i), 'Av 1')
+    // Esperar a que cargue el formulario
+    await screen.findByText(/Información Básica/i)
+    
+    // Esperar un poco más para que todos los campos estén renderizados
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Completar mínimos - buscar por el texto del label que está visible
+    const referenceInput = await screen.findByLabelText(/Reference Vexa/i)
+    await userEvent.type(referenceInput, 'REF-INTEG-1')
+    
+    const dateInput = await screen.findByLabelText(/Fecha Programada/i)
+    await userEvent.type(dateInput, '2025-12-31')
+    
+    const streetInput = await screen.findByPlaceholderText(/Belgrano|Libertador/i)
+    await userEvent.type(streetInput, 'Av 1')
 
-    // Seleccionar Cliente 1 (Radix Select usa role=combobox en el trigger)
-    await userEvent.click(await screen.findByRole('combobox', { name: /Cliente/i }))
+    // Seleccionar Cliente 1 (SearchableSelect usa botón con aria-label)
+    await userEvent.click(await screen.findByRole('button', { name: /Cliente/i }))
     await userEvent.click(await screen.findByRole('option', { name: /Cliente 1/i }))
 
     // Tildar certificados

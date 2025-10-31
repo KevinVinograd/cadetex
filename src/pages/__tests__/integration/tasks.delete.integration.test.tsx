@@ -25,15 +25,24 @@ describe('Tasks - eliminar desde Dashboard (integration)', () => {
       </MemoryRouter>
     )
 
-    // Esperar que cargue el dashboard
+    // Esperar que cargue el dashboard y las tareas
     await screen.findByRole('heading', { name: /Dashboard/i })
+    
+    // Esperar a que aparezca la tabla con tareas
+    await screen.findByText(/REF-OLD/i)
 
-    // Abrir acciones y eliminar (usa el botón con título Eliminar Tarea en la fila)
-    const deleteButtons = await screen.findAllByTitle(/Eliminar Tarea/i)
-    await userEvent.click(deleteButtons[0])
+    // Buscar el botón de eliminar (tiene title="Eliminar")
+    const deleteButtons = await screen.findAllByTitle(/Eliminar/i)
+    // El primer botón es el de la tabla, los otros pueden ser del diálogo
+    const tableDeleteButton = deleteButtons.find(btn => btn.getAttribute('title') === 'Eliminar')
+    if (tableDeleteButton) {
+      await userEvent.click(tableDeleteButton)
+    } else {
+      await userEvent.click(deleteButtons[0])
+    }
 
     // Confirmar en diálogo
-    await userEvent.click(await screen.findByRole('button', { name: /Eliminar/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /Eliminar$/i }))
 
     await waitFor(() => {
       expect(requestLog.deleteTask.length).toBeGreaterThan(0)

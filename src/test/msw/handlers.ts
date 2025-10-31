@@ -96,9 +96,30 @@ export const handlers = [
     const { orgId } = params
     return HttpResponse.json(db.tasks.filter(t => t.organizationId === orgId))
   }),
+  // Filtered tasks (used for unassigned list, etc.)
+  http.get('http://localhost:8080/tasks/filtered', ({ request }) => {
+    const url = new URL(request.url)
+    const unassigned = url.searchParams.get('unassigned') === 'true'
+    const statuses = url.searchParams.getAll('status')
+    let result = [...db.tasks]
+    if (unassigned) {
+      result = result.filter(t => !t.courierId || t.courierId === 'unassigned')
+    }
+    if (statuses.length > 0) {
+      result = result.filter(t => statuses.includes(String(t.status)))
+    }
+    return HttpResponse.json(result)
+  }),
   http.get('http://localhost:8080/tasks/courier/:courierId', ({ params }: { params: { courierId: string } }) => {
     const { courierId } = params
     return HttpResponse.json(db.tasks.filter(t => t.courierId === courierId))
+  }),
+  // Task photos endpoint debe estar antes de GET /tasks/:id para que no capture la ruta /tasks/:id/photos
+  http.get('http://localhost:8080/tasks/:id/photos', ({ params }: { params: { id: string } }) => {
+    const { id } = params
+    const task = db.tasks.find(t => t.id === id)
+    if (!task) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    return HttpResponse.json([])
   }),
   http.get('http://localhost:8080/tasks/:id', ({ params }: { params: { id: string } }) => {
     const { id } = params
@@ -167,6 +188,17 @@ export const handlers = [
     task.status = body.status
     task.updatedAt = new Date().toISOString()
     return HttpResponse.json(task)
+  }),
+  // Upload task photo (receipt or additional)
+  http.post('http://localhost:8080/tasks/:id/photo', async ({ params }: { params: { id: string } }) => {
+    const { id } = params
+    const task = db.tasks.find(t => t.id === id)
+    if (!task) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    return HttpResponse.json({ photoUrl: `http://localhost:8080/mock-photos/${id}/${Date.now()}.jpg` })
+  }),
+  // Unassigned tasks for courier
+  http.get('http://localhost:8080/tasks/unassigned', () => {
+    return HttpResponse.json(db.tasks.filter(t => !t.courierId || t.courierId === 'unassigned'))
   }),
 ]
 

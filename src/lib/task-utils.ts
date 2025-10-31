@@ -23,7 +23,8 @@ export function mapStatusToBackend(status: string): string {
   return map[status] || status.toUpperCase()
 }
 
-export function mapPriorityToForm(priority: string): string {
+export function mapPriorityToForm(priority: string | undefined | null): string {
+  if (!priority) return 'normal'
   const upper = String(priority).toUpperCase()
   const map: Record<string, string> = {
     NORMAL: 'normal',
@@ -31,7 +32,7 @@ export function mapPriorityToForm(priority: string): string {
     HIGH: 'alta',
     LOW: 'baja',
   }
-  return map[upper] || priority.toLowerCase()
+  return map[upper] || String(priority).toLowerCase()
 }
 
 export function mapPriorityToBackend(priority: string): string {

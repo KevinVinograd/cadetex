@@ -96,6 +96,7 @@ export function FinalizeTaskModal({
                   accept="image/*"
                   onChange={onReceiptPhotoChange}
                   className="text-sm border-primary/30 focus:border-primary"
+                  data-testid="receipt-file"
                 />
                 {receiptPhoto && (
                   <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md">

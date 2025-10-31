@@ -16,7 +16,8 @@ beforeEach(() => {
     referenceNumber: 'REF-OLD',
     clientId: 'client-1',
     scheduledDate: '2025-12-31',
-    status: 'PENDING'
+    status: 'PENDING',
+    priority: 'NORMAL'
   }))
 })
 
@@ -28,21 +29,15 @@ describe('Tasks - clone (integration)', () => {
       </MemoryRouter>
     )
 
-    // Dirección prefilleada desde contacto/tarea
-    const address = await screen.findByPlaceholderText(/Ingresa la dirección/i)
-    if (!(address as HTMLTextAreaElement).value) {
-      const maybeBtn = screen.queryByRole('button', { name: /Usar dirección del contacto/i })
-      if (maybeBtn) {
-        await userEvent.click(maybeBtn)
-      } else {
-        // Si no hay botón, la dirección puede quedar vacía; escribe una por defecto
-        await userEvent.type(address, 'Av 1')
-      }
-    }
-    expect((address as HTMLTextAreaElement).value).toBeTruthy()
+    // Completar dirección en campos actuales (Nombre de la Calle)
+    const streetInput = await screen.findByPlaceholderText(/Belgrano|Libertador/i)
+    await userEvent.clear(streetInput)
+    await userEvent.type(streetInput, 'Av 1')
 
     await userEvent.click(screen.getByRole('button', { name: /Crear Tarea/i }))
-    expect(await screen.findByText(/Tarea Clonada|exitosamente/i)).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toBeInTheDocument()
+    expect(dialog).toHaveTextContent(/Tarea Clonada/i)
   })
 })
 

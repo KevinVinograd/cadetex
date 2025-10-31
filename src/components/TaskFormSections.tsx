@@ -34,8 +34,9 @@ export function BasicInfoSection({ formData, onInputChange, disabled }: Partial<
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium text-muted-foreground">Reference Vexa *</label>
+            <label className="text-sm font-medium text-muted-foreground" htmlFor="referenceBL">Reference Vexa *</label>
             <Input
+              id="referenceBL"
               value={formData.referenceBL}
               onChange={(e) => onInputChange!("referenceBL", e.target.value)}
               className="mt-1"
@@ -71,8 +72,9 @@ export function BasicInfoSection({ formData, onInputChange, disabled }: Partial<
             </Select>
           </div>
           <div>
-            <label className="text-sm font-medium text-muted-foreground">Fecha Programada *</label>
+            <label className="text-sm font-medium text-muted-foreground" htmlFor="scheduledDate">Fecha Programada *</label>
             <Input
+              id="scheduledDate"
               type="date"
               value={formData.scheduledDate}
               onChange={(e) => onInputChange!("scheduledDate", e.target.value)}

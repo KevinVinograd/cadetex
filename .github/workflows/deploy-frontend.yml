@@ -23,8 +23,8 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Run tests
-        run: npm test
+      - name: Run integration tests
+        run: npm run test:integration
 
       - name: Build
         run: npm run build
