@@ -21,7 +21,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/setupTests.ts'],
+    setupFiles: [path.resolve(__dirname, './src/setupTests.ts')],
     globals: true,
     css: true,
     coverage: {
